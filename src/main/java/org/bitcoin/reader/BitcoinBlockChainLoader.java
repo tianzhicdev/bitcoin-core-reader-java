@@ -60,6 +60,7 @@ public class BitcoinBlockChainLoader {
     }
 
     public static Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
+        long startTime = System.currentTimeMillis(); // Start metering
         conn = refreshDatabaseConnection(conn);
         if (conn == null || transactions == null || transactions.isEmpty()) {
             return false;
@@ -76,6 +77,8 @@ public class BitcoinBlockChainLoader {
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
+            long endTime = System.currentTimeMillis(); // End metering
+            logger.info("writeTransactions executed in " + (endTime - startTime) + " ms");
             return true;
         } catch (SQLException e) {
             logger.error("Error writing transactions: ", e);
