@@ -107,15 +107,15 @@ public class BitcoinBlockChainLoader {
     }
 
     public static void main(String[] args) {
-        int x = args.length > 0 ? Integer.parseInt(args[0]) : 50; // Number of BlockReader threads
-        int y = args.length > 1 ? Integer.parseInt(args[1]) : 10;  // Number of DBWriter threads
-        int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 1000; // Batch size for DBWriter
+        int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
+        int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
+        int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Batch size for DBWriter
 
         BitcoinClient btcCore;
         try {
             btcCore = new BitcoinClient(
-                    new URI("http://marcus-mini.is-very-nice.org:3003"),
-                //     new URI("http://localhost:3003"),
+                //     new URI("http://marcus-mini.is-very-nice.org:3003"),
+                    new URI("http://localhost:3003"),
                     "bitcoinrpc",
                     "12345"
             );
