@@ -108,10 +108,9 @@ public class BitcoinBlockChainLoader {
     public static void main(String[] args) throws SQLException {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
-        int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Batch size for DBWriter
-        int maxBatchSize = args.length > 3 ? Integer.parseInt(args[3]) : batchSize * 2; // Max batch size for DBWriter
-        int smallestSize = args.length > 4 ? Integer.parseInt(args[4]) : batchSize; // Smallest size for DBWriter
-        int queueSize = args.length > 5 ? Integer.parseInt(args[5]) : 100000; // Queue size for transactionQueue
+        int maxBatchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Max batch size for DBWriter
+        int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
+        int queueSize = args.length > 4 ? Integer.parseInt(args[4]) : 100; // Queue size for transactionQueue
 
         BitcoinClient btcCore;
         try {
