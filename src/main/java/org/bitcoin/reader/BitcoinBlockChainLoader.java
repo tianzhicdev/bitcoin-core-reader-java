@@ -109,6 +109,9 @@ public class BitcoinBlockChainLoader {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Batch size for DBWriter
+        int maxBatchSize = args.length > 3 ? Integer.parseInt(args[3]) : batchSize * 2; // Max batch size for DBWriter
+        int smallestSize = args.length > 4 ? Integer.parseInt(args[4]) : batchSize; // Smallest size for DBWriter
+        int queueSize = args.length > 5 ? Integer.parseInt(args[5]) : 100000; // Queue size for transactionQueue
 
         BitcoinClient btcCore;
         try {
@@ -129,7 +132,7 @@ public class BitcoinBlockChainLoader {
             return;
         }
 
-        BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(50000);
+        BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(queueSize);
         AtomicInteger currentBlockNumber = new AtomicInteger(getHighestBlock(conn));
         // Create x BlockReader threads using ForkJoinPool
         ForkJoinPool blockReaderExecutor = new ForkJoinPool(x);
@@ -158,7 +161,7 @@ public class BitcoinBlockChainLoader {
         for (int i = 0; i < y; i++) {
             dbWriterExecutor.submit(() -> {
                 while (true) {
-                    if (transactionQueue.size() < batchSize) {
+                    if (transactionQueue.size() < smallestSize) {
                         try {
                             Thread.sleep(10000); // Sleep for 10 seconds
                             logger.debug("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
@@ -169,7 +172,7 @@ public class BitcoinBlockChainLoader {
                     } else {
                         List<TransactionJava> batch = new ArrayList<>();
                         try {
-                            transactionQueue.drainTo(batch, batchSize * 2);
+                            transactionQueue.drainTo(batch, maxBatchSize);
                             if (!batch.isEmpty()) {
                                 logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
                                 writeTransactions(conn, batch);
