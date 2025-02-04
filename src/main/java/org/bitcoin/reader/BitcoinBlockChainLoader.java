@@ -10,11 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
-
-
 
 public class BitcoinBlockChainLoader {
     private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
@@ -28,13 +25,12 @@ public class BitcoinBlockChainLoader {
 
             connection = DriverManager.getConnection(url, user, password);
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Database connection error: ", e);
         }
         return connection;
     }
 
     static public int getHighestBlock(Connection conn) {
-
         int highestBlock = 1;
         String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java";
 
@@ -44,14 +40,13 @@ public class BitcoinBlockChainLoader {
                 highestBlock = rs.getInt(1);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error fetching highest block: ", e);
         }
 
         return highestBlock;
     }
 
     static public Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
-        // INSERT_YOUR_CODE
         if (conn == null || transactions == null || transactions.isEmpty()) {
             return false;
         }
@@ -69,7 +64,7 @@ public class BitcoinBlockChainLoader {
             pstmt.executeBatch();
             return true;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error writing transactions: ", e);
             return false;
         }
     }
@@ -85,11 +80,9 @@ public class BitcoinBlockChainLoader {
                 transactions.add(transactionJava);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error getting transactions for block " + blockNumber + ": ", e);
         }
         return transactions;
-
-
     }
 
     public static void main(String[] args) throws Exception {
@@ -112,9 +105,8 @@ public class BitcoinBlockChainLoader {
 
         BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(10000);
         AtomicInteger currentBlockNumber = new AtomicInteger(getHighestBlock(conn));
-
-        // Create x BlockReader threads
-        ExecutorService blockReaderExecutor = Executors.newFixedThreadPool(x);
+        // Create x BlockReader threads using ForkJoinPool
+        ForkJoinPool blockReaderExecutor = new ForkJoinPool(x);
 
         for (int i = 0; i < x; i++) {
             blockReaderExecutor.submit(() -> {
@@ -123,29 +115,40 @@ public class BitcoinBlockChainLoader {
                     List<TransactionJava> transactions = getTransactions(btcCore, blockNumber);
                     try {
                         transactionQueue.addAll(transactions);
-                        logger.info("BlockReader - Block number: " + blockNumber + ", Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                        logger.debug("BlockReader - Block number: " + blockNumber + ", Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                     } catch (IllegalStateException e) {
-                        e.printStackTrace();
+                        logger.error("Error adding transactions to queue: ", e);
                     }
                 }
             });
         }
 
         // Create y DBWriter threads
-        ExecutorService dbWriterExecutor = Executors.newFixedThreadPool(y);
+        ForkJoinPool dbWriterExecutor = new ForkJoinPool(y);
 
         for (int i = 0; i < y; i++) {
             dbWriterExecutor.submit(() -> {
+                long startTime = System.currentTimeMillis();
+                int recordsWritten = 0;
                 while (true) {
                     List<TransactionJava> batch = new ArrayList<>();
                     try {
                         transactionQueue.drainTo(batch, batchSize);
                         if (!batch.isEmpty()) {
-                            logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                            logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                             writeTransactions(conn, batch);
+                            recordsWritten += batch.size();
+                        }
+                        
+                        long currentTime = System.currentTimeMillis();
+                        if (currentTime - startTime >= 60000) { // 60,000 milliseconds = 1 minute
+                            logger.info("DBWriter - Records written in the last minute: " + recordsWritten);
+                            logger.info("DBWriter - Current block number: " + currentBlockNumber.get());
+                            recordsWritten = 0;
+                            startTime = currentTime;
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        logger.error("Error in DBWriter thread: ", e);
                     }
                 }
             });
