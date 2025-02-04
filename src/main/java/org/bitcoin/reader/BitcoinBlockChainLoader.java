@@ -128,17 +128,29 @@ public class BitcoinBlockChainLoader {
         for (int i = 0; i < y; i++) {
             dbWriterExecutor.submit(() -> {
                 while (true) {
-                    List<TransactionJava> batch = new ArrayList<>();
-                    try {
-                        transactionQueue.drainTo(batch, batchSize);
-                        if (!batch.isEmpty()) {
-                            logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
-                            writeTransactions(conn, batch);
+                        if(transactionQueue.size() < batchSize){
+                                try {
+                                Thread.sleep(10000); // Sleep for 10 seconds
+                                logger.info("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                                } catch (InterruptedException e) {
+                                logger.error("Error in DBWriter sleep: ", e);
+                                Thread.currentThread().interrupt(); // Restore interrupted status
+                                }
+                        }else{
+                                List<TransactionJava> batch = new ArrayList<>();
+                                try {
+                                    transactionQueue.drainTo(batch, batchSize);
+                                    if (!batch.isEmpty()) {
+                                        logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
+                                        writeTransactions(conn, batch);
+                                    }
+                                    
+                                } catch (Exception e) {
+                                    logger.error("Error in DBWriter thread: ", e);
+                                }
+                                
                         }
-                        
-                    } catch (Exception e) {
-                        logger.error("Error in DBWriter thread: ", e);
-                    }
+
                 }
             });
         }
