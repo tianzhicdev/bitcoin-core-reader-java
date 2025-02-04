@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BitcoinBlockChainLoader {
     private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
+    private static final AtomicInteger writtenRecordsCounter = new AtomicInteger(0);
 
     private static Connection getDatabaseConnection() {
         Connection connection = null;
@@ -79,6 +80,7 @@ public class BitcoinBlockChainLoader {
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
+            writtenRecordsCounter.addAndGet(transactions.size());
             long endTime = System.currentTimeMillis(); // End metering
             logger.info("writeTransactions executed in " + (endTime - startTime) + " ms");
             return true;
@@ -112,7 +114,8 @@ public class BitcoinBlockChainLoader {
         BitcoinClient btcCore;
         try {
             btcCore = new BitcoinClient(
-                    new URI("http://marcus-mini.is-very-nice.org:3003"),
+                //     new URI("http://marcus-mini.is-very-nice.org:3003"),
+                    new URI("http://localhost:3003"),
                     "bitcoinrpc",
                     "12345"
             );
@@ -183,8 +186,8 @@ public class BitcoinBlockChainLoader {
             });
         }
 
-        long previousBlockNumber = currentBlockNumber.get();
         long previousTime = System.currentTimeMillis();
+        int previousWrittenRecords = writtenRecordsCounter.get();
 
         while (true) {
             long currentBlockNumberValue = currentBlockNumber.get();
@@ -192,11 +195,12 @@ public class BitcoinBlockChainLoader {
             long timeElapsed = currentTime - previousTime;
 
             if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
-                long blockNumberChangeRate = currentBlockNumberValue - previousBlockNumber;
-                logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Block Number Change Rate: " + blockNumberChangeRate + " per minute");
+                int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
+                logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Written Records Change Rate: " + writtenRecordsChangeRate + " per minute");
 
                 previousBlockNumber = currentBlockNumberValue;
                 previousTime = currentTime;
+                previousWrittenRecords = writtenRecordsCounter.get();
             }
 
             try {
