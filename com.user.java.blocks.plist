@@ -6,10 +6,9 @@
     <string>com.user.java.blocks</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/java</string>
-        <string>-cp</string>
-        <string>/path/to/your/bitcoin-core-reader-java.jar</string>
-        <string>org.bitcoin.reader.BitcoinBlockChainLoader</string>
+        <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java </string>
+        <string>-jar</string>
+        <string>/Users/tianzhichen/projects/bitcoin-core-reader-java/target/bitcoin-core-reader-java-1.0-SNAPSHOT.jar</string>
         <string>50</string> <!-- Number of BlockReader threads -->
         <string>30</string> <!-- Number of DBWriter threads -->
         <string>200</string> <!-- Max batch size for DBWriter -->
