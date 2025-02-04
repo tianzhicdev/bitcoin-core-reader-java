@@ -82,7 +82,7 @@ public class BitcoinBlockChainLoader {
             pstmt.executeBatch();
             writtenRecordsCounter.addAndGet(transactions.size());
             long endTime = System.currentTimeMillis(); // End metering
-            logger.info("writeTransactions executed in " + (endTime - startTime) + " ms");
+            logger.debug("writeTransactions executed in " + (endTime - startTime) + " ms, number of transactions: " + transactions.size());
         } catch (SQLException e) {
             logger.error("Error writing transactions: ", e);
             throw e;
