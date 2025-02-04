@@ -36,7 +36,7 @@ public class BitcoinBlockChainLoader {
     private static Connection refreshDatabaseConnection(Connection conn) {
         try {
             if (conn == null || conn.isClosed()) {
-                logger.info("Refreshing database connection.");
+                logger.debug("Refreshing database connection.");
                 conn = getDatabaseConnection();
             }
         } catch (SQLException e) {
@@ -82,7 +82,7 @@ public class BitcoinBlockChainLoader {
             pstmt.executeBatch();
             writtenRecordsCounter.addAndGet(transactions.size());
             long endTime = System.currentTimeMillis(); // End metering
-            logger.info("writeTransactions executed in " + (endTime - startTime) + " ms");
+            logger.debug("writeTransactions executed in " + (endTime - startTime) + " ms");
             return true;
         } catch (SQLException e) {
             logger.error("Error writing transactions: ", e);
@@ -130,7 +130,7 @@ public class BitcoinBlockChainLoader {
             return;
         }
 
-        BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(10000);
+        BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(50000);
         AtomicInteger currentBlockNumber = new AtomicInteger(getHighestBlock(conn));
         // Create x BlockReader threads using ForkJoinPool
         ForkJoinPool blockReaderExecutor = new ForkJoinPool(x);
@@ -162,7 +162,7 @@ public class BitcoinBlockChainLoader {
                     if (transactionQueue.size() < batchSize) {
                         try {
                             Thread.sleep(10000); // Sleep for 10 seconds
-                            logger.info("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                            logger.debug("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                         } catch (InterruptedException e) {
                             logger.error("Error in DBWriter sleep: ", e);
                             Thread.currentThread().interrupt(); // Restore interrupted status
@@ -172,10 +172,11 @@ public class BitcoinBlockChainLoader {
                         try {
                             transactionQueue.drainTo(batch, batchSize * 2);
                             if (!batch.isEmpty()) {
-                                logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
-                                writeTransactions(conn, batch);
+                                logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
+                                if (writeTransactions(conn, batch)) {
+                                    throw new RuntimeException("Failed to write transactions to the database.");
+                                }
                             }
-
                         } catch (Exception e) {
                             logger.error("Error in DBWriter thread: ", e);
                         }
