@@ -19,7 +19,9 @@ public class BitcoinBlockChainLoader {
     private static Connection getDatabaseConnection() {
         Connection connection = null;
         try {
-            String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
+
+            String url = "jdbc:postgresql://localhost:3004/bitcoin";
+        //     String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
             String user = "abc";
             String password = "12345";
 
