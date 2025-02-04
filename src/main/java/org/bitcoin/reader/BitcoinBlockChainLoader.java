@@ -110,10 +110,13 @@ public class BitcoinBlockChainLoader {
                     int blockNumber = currentBlockNumber.getAndIncrement();
                     List<TransactionJava> transactions = getTransactions(btcCore, blockNumber);
                     try {
-                        transactionQueue.addAll(transactions);
+                        for (TransactionJava transaction : transactions) {
+                            transactionQueue.put(transaction); // Use blocking call
+                        }
                         logger.debug("BlockReader - Block number: " + blockNumber + ", Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
-                    } catch (IllegalStateException e) {
+                    } catch (InterruptedException e) {
                         logger.error("Error adding transactions to queue: ", e);
+                        Thread.currentThread().interrupt(); // Restore interrupted status
                     }
                 }
             });
@@ -129,7 +132,7 @@ public class BitcoinBlockChainLoader {
                     try {
                         transactionQueue.drainTo(batch, batchSize);
                         if (!batch.isEmpty()) {
-                            logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                            logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                             writeTransactions(conn, batch);
                         }
                         
