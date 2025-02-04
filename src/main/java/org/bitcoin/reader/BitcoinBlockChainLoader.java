@@ -186,6 +186,7 @@ public class BitcoinBlockChainLoader {
             });
         }
 
+        // long previousBlockNumber = currentBlockNumber.get();
         long previousTime = System.currentTimeMillis();
         int previousWrittenRecords = writtenRecordsCounter.get();
 
@@ -195,10 +196,11 @@ public class BitcoinBlockChainLoader {
             long timeElapsed = currentTime - previousTime;
 
             if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
+                // long blockNumberChangeRate = currentBlockNumberValue - previousBlockNumber;
                 int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
                 logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Written Records Change Rate: " + writtenRecordsChangeRate + " per minute");
 
-                previousBlockNumber = currentBlockNumberValue;
+                // previousBlockNumber = currentBlockNumberValue;
                 previousTime = currentTime;
                 previousWrittenRecords = writtenRecordsCounter.get();
             }
