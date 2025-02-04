@@ -20,9 +20,8 @@ public class BitcoinBlockChainLoader {
     private static Connection getDatabaseConnection() {
         Connection connection = null;
         try {
-
             String url = "jdbc:postgresql://localhost:3004/bitcoin";
-        //     String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
+            // String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
             String user = "abc";
             String password = "12345";
 
@@ -33,7 +32,7 @@ public class BitcoinBlockChainLoader {
         return connection;
     }
 
-    private static Connection refreshDatabaseConnection(Connection conn) {
+    private static Connection refreshDatabaseConnection(Connection conn) throws SQLException {
         try {
             if (conn == null || conn.isClosed()) {
                 logger.debug("Refreshing database connection.");
@@ -41,11 +40,12 @@ public class BitcoinBlockChainLoader {
             }
         } catch (SQLException e) {
             logger.error("Error checking or refreshing database connection: ", e);
+            throw e;
         }
         return conn;
     }
 
-    public static int getHighestBlock(Connection conn) {
+    public static int getHighestBlock(Connection conn) throws SQLException {
         conn = refreshDatabaseConnection(conn);
         int highestBlock = 1;
         String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java";
@@ -62,11 +62,11 @@ public class BitcoinBlockChainLoader {
         return highestBlock;
     }
 
-    public static Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
+    public static void writeTransactions(Connection conn, List<TransactionJava> transactions) throws SQLException {
         long startTime = System.currentTimeMillis(); // Start metering
         conn = refreshDatabaseConnection(conn);
         if (conn == null || transactions == null || transactions.isEmpty()) {
-            return false;
+            throw new SQLException("Connection is null or transactions list is empty.");
         }
 
         String sql = "INSERT INTO transactions_java (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?)";
@@ -83,10 +83,9 @@ public class BitcoinBlockChainLoader {
             writtenRecordsCounter.addAndGet(transactions.size());
             long endTime = System.currentTimeMillis(); // End metering
             logger.info("writeTransactions executed in " + (endTime - startTime) + " ms");
-            return true;
         } catch (SQLException e) {
             logger.error("Error writing transactions: ", e);
-            return false;
+            throw e;
         }
     }
 
@@ -106,7 +105,7 @@ public class BitcoinBlockChainLoader {
         return transactions;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Batch size for DBWriter
@@ -114,10 +113,10 @@ public class BitcoinBlockChainLoader {
         BitcoinClient btcCore;
         try {
             btcCore = new BitcoinClient(
-                //     new URI("http://marcus-mini.is-very-nice.org:3003"),
-                    new URI("http://localhost:3003"),
-                    "bitcoinrpc",
-                    "12345"
+                // new URI("http://marcus-mini.is-very-nice.org:3003"),
+                new URI("http://localhost:3003"),
+                "bitcoinrpc",
+                "12345"
             );
         } catch (Exception e) {
             logger.error("Error creating BitcoinClient: ", e);
@@ -173,21 +172,16 @@ public class BitcoinBlockChainLoader {
                             transactionQueue.drainTo(batch, batchSize * 2);
                             if (!batch.isEmpty()) {
                                 logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
-                                if (writeTransactions(conn, batch)) {
-                                    throw new RuntimeException("Failed to write transactions to the database.");
-                                }
+                                writeTransactions(conn, batch);
                             }
                         } catch (Exception e) {
                             logger.error("Error in DBWriter thread: ", e);
                         }
-
                     }
-
                 }
             });
         }
 
-        // long previousBlockNumber = currentBlockNumber.get();
         long previousTime = System.currentTimeMillis();
         int previousWrittenRecords = writtenRecordsCounter.get();
 
@@ -197,11 +191,9 @@ public class BitcoinBlockChainLoader {
             long timeElapsed = currentTime - previousTime;
 
             if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
-                // long blockNumberChangeRate = currentBlockNumberValue - previousBlockNumber;
                 int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
                 logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Written Records Change Rate: " + writtenRecordsChangeRate + " per minute");
 
-                // previousBlockNumber = currentBlockNumberValue;
                 previousTime = currentTime;
                 previousWrittenRecords = writtenRecordsCounter.get();
             }
