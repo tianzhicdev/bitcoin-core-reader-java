@@ -30,7 +30,20 @@ public class BitcoinBlockChainLoader {
         return connection;
     }
 
+    private static Connection refreshDatabaseConnection(Connection conn) {
+        try {
+            if (conn == null || conn.isClosed()) {
+                logger.info("Refreshing database connection.");
+                conn = getDatabaseConnection();
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking or refreshing database connection: ", e);
+        }
+        return conn;
+    }
+
     public static int getHighestBlock(Connection conn) {
+        conn = refreshDatabaseConnection(conn);
         int highestBlock = 1;
         String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java";
 
@@ -47,6 +60,7 @@ public class BitcoinBlockChainLoader {
     }
 
     public static Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
+        conn = refreshDatabaseConnection(conn);
         if (conn == null || transactions == null || transactions.isEmpty()) {
             return false;
         }
