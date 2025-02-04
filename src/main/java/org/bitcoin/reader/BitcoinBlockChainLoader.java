@@ -148,7 +148,7 @@ public class BitcoinBlockChainLoader {
                     } else {
                         List<TransactionJava> batch = new ArrayList<>();
                         try {
-                            transactionQueue.drainTo(batch);
+                            transactionQueue.drainTo(batch, batchSize * 2);
                             if (!batch.isEmpty()) {
                                 logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
                                 writeTransactions(conn, batch);
