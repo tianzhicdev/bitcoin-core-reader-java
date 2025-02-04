@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BitcoinBlockChainLoader {
@@ -86,18 +85,28 @@ public class BitcoinBlockChainLoader {
         return transactions;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 50; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 10;  // Number of DBWriter threads
         int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 1000; // Batch size for DBWriter
 
-        BitcoinClient btcCore = new BitcoinClient(
-                new URI("http://marcus-mini.is-very-nice.org:3003"),
-                "bitcoinrpc",
-                "12345"
-        );
+        BitcoinClient btcCore;
+        try {
+            btcCore = new BitcoinClient(
+                    new URI("http://marcus-mini.is-very-nice.org:3003"),
+                    "bitcoinrpc",
+                    "12345"
+            );
+        } catch (Exception e) {
+            logger.error("Error creating BitcoinClient: ", e);
+            return;
+        }
 
         Connection conn = getDatabaseConnection();
+        if (conn == null) {
+            logger.error("Failed to establish database connection. Exiting.");
+            return;
+        }
 
         BlockingQueue<TransactionJava> transactionQueue = new ArrayBlockingQueue<>(10000);
         AtomicInteger currentBlockNumber = new AtomicInteger(getHighestBlock(conn));
@@ -128,28 +137,28 @@ public class BitcoinBlockChainLoader {
         for (int i = 0; i < y; i++) {
             dbWriterExecutor.submit(() -> {
                 while (true) {
-                        if(transactionQueue.size() < batchSize){
-                                try {
-                                Thread.sleep(10000); // Sleep for 10 seconds
-                                logger.info("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
-                                } catch (InterruptedException e) {
-                                logger.error("Error in DBWriter sleep: ", e);
-                                Thread.currentThread().interrupt(); // Restore interrupted status
-                                }
-                        }else{
-                                List<TransactionJava> batch = new ArrayList<>();
-                                try {
-                                    transactionQueue.drainTo(batch, batchSize);
-                                    if (!batch.isEmpty()) {
-                                        logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
-                                        writeTransactions(conn, batch);
-                                    }
-                                    
-                                } catch (Exception e) {
-                                    logger.error("Error in DBWriter thread: ", e);
-                                }
-                                
+                    if (transactionQueue.size() < batchSize) {
+                        try {
+                            Thread.sleep(10000); // Sleep for 10 seconds
+                            logger.info("DBWriter - Waiting for more transactions. Current queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                        } catch (InterruptedException e) {
+                            logger.error("Error in DBWriter sleep: ", e);
+                            Thread.currentThread().interrupt(); // Restore interrupted status
                         }
+                    } else {
+                        List<TransactionJava> batch = new ArrayList<>();
+                        try {
+                            transactionQueue.drainTo(batch, batchSize);
+                            if (!batch.isEmpty()) {
+                                logger.info("DBWriter - Queue size: " + transactionQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
+                                writeTransactions(conn, batch);
+                            }
+
+                        } catch (Exception e) {
+                            logger.error("Error in DBWriter thread: ", e);
+                        }
+
+                    }
 
                 }
             });
@@ -166,21 +175,17 @@ public class BitcoinBlockChainLoader {
             if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
                 long blockNumberChangeRate = currentBlockNumberValue - previousBlockNumber;
                 logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Block Number Change Rate: " + blockNumberChangeRate + " per minute");
-                
+
                 previousBlockNumber = currentBlockNumberValue;
                 previousTime = currentTime;
             }
 
             try {
-                Thread.sleep(10000); 
+                Thread.sleep(10000);
             } catch (InterruptedException e) {
                 logger.error("Error in logging thread: ", e);
                 Thread.currentThread().interrupt();
             }
         }
-
-        // Wait for all tasks to complete
-        // blockReaderExecutor.awaitQuiescence(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        // dbWriterExecutor.awaitQuiescence(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
     }
 }
