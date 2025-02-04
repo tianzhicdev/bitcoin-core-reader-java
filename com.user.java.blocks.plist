@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.java.blocks</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/java</string>
+        <string>-cp</string>
+        <string>/path/to/your/bitcoin-core-reader-java.jar</string>
+        <string>org.bitcoin.reader.BitcoinBlockChainLoader</string>
+        <string>50</string> <!-- Number of BlockReader threads -->
+        <string>30</string> <!-- Number of DBWriter threads -->
+        <string>200</string> <!-- Max batch size for DBWriter -->
+        <string>2000</string> <!-- Smallest size for DBWriter -->
+        <string>100000</string> <!-- Queue size for transactionQueue -->
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/logs/plist/bitcoin-blockchain-loader.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/logs/plist/bitcoin-blockchain-loader.err</string>
+</dict>
+</plist>
