@@ -114,8 +114,8 @@ public class BitcoinBlockChainLoader {
         BitcoinClient btcCore;
         try {
             btcCore = new BitcoinClient(
-                //     new URI("http://marcus-mini.is-very-nice.org:3003"),
-                    new URI("http://localhost:3003"),
+                    new URI("http://marcus-mini.is-very-nice.org:3003"),
+                //     new URI("http://localhost:3003"),
                     "bitcoinrpc",
                     "12345"
             );
