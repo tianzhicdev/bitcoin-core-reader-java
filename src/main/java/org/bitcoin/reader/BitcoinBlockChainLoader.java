@@ -11,12 +11,13 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BitcoinBlockChainLoader {
     private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
 
-    static private Connection getDatabaseConnection() {
+    private static Connection getDatabaseConnection() {
         Connection connection = null;
         try {
             String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
@@ -30,7 +31,7 @@ public class BitcoinBlockChainLoader {
         return connection;
     }
 
-    static public int getHighestBlock(Connection conn) {
+    public static int getHighestBlock(Connection conn) {
         int highestBlock = 1;
         String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java";
 
@@ -46,7 +47,7 @@ public class BitcoinBlockChainLoader {
         return highestBlock;
     }
 
-    static public Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
+    public static Boolean writeTransactions(Connection conn, List<TransactionJava> transactions) {
         if (conn == null || transactions == null || transactions.isEmpty()) {
             return false;
         }
@@ -69,7 +70,7 @@ public class BitcoinBlockChainLoader {
         }
     }
 
-    static public List<TransactionJava> getTransactions(BitcoinClient btcCore, int blockNumber) {
+    public static List<TransactionJava> getTransactions(BitcoinClient btcCore, int blockNumber) {
         List<TransactionJava> transactions = new ArrayList<>();
         try {
             Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
@@ -86,14 +87,9 @@ public class BitcoinBlockChainLoader {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 3) {
-            System.err.println("Usage: java BitcoinBlockChainLoader <numBlockReaderThreads> <numDBWriterThreads> <batchSize>");
-            System.exit(1);
-        }
-
-        int x = Integer.parseInt(args[0]); // Number of BlockReader threads
-        int y = Integer.parseInt(args[1]); // Number of DBWriter threads
-        int batchSize = Integer.parseInt(args[2]); // Batch size for DBWriter
+        int x = args.length > 0 ? Integer.parseInt(args[0]) : 50; // Number of BlockReader threads
+        int y = args.length > 1 ? Integer.parseInt(args[1]) : 10;  // Number of DBWriter threads
+        int batchSize = args.length > 2 ? Integer.parseInt(args[2]) : 1000; // Batch size for DBWriter
 
         BitcoinClient btcCore = new BitcoinClient(
                 new URI("http://marcus-mini.is-very-nice.org:3003"),
@@ -128,8 +124,6 @@ public class BitcoinBlockChainLoader {
 
         for (int i = 0; i < y; i++) {
             dbWriterExecutor.submit(() -> {
-                long startTime = System.currentTimeMillis();
-                int recordsWritten = 0;
                 while (true) {
                     List<TransactionJava> batch = new ArrayList<>();
                     try {
@@ -137,21 +131,41 @@ public class BitcoinBlockChainLoader {
                         if (!batch.isEmpty()) {
                             logger.debug("DBWriter - Queue size: " + transactionQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                             writeTransactions(conn, batch);
-                            recordsWritten += batch.size();
                         }
                         
-                        long currentTime = System.currentTimeMillis();
-                        if (currentTime - startTime >= 60000) { // 60,000 milliseconds = 1 minute
-                            logger.info("DBWriter - Records written in the last minute: " + recordsWritten);
-                            logger.info("DBWriter - Current block number: " + currentBlockNumber.get());
-                            recordsWritten = 0;
-                            startTime = currentTime;
-                        }
                     } catch (Exception e) {
                         logger.error("Error in DBWriter thread: ", e);
                     }
                 }
             });
         }
+
+        long previousBlockNumber = currentBlockNumber.get();
+        long previousTime = System.currentTimeMillis();
+
+        while (true) {
+            long currentBlockNumberValue = currentBlockNumber.get();
+            long currentTime = System.currentTimeMillis();
+            long timeElapsed = currentTime - previousTime;
+
+            if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
+                long blockNumberChangeRate = currentBlockNumberValue - previousBlockNumber;
+                logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Block Number Change Rate: " + blockNumberChangeRate + " per minute");
+                
+                previousBlockNumber = currentBlockNumberValue;
+                previousTime = currentTime;
+            }
+
+            try {
+                Thread.sleep(10000); 
+            } catch (InterruptedException e) {
+                logger.error("Error in logging thread: ", e);
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        // Wait for all tasks to complete
+        // blockReaderExecutor.awaitQuiescence(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        // dbWriterExecutor.awaitQuiescence(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
     }
 }
