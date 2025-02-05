@@ -43,7 +43,7 @@ public class BitcoinBlockChainLoader {
             throw new SQLException("Connection is null or transactions list is empty.");
         }
 
-        String sql = "INSERT INTO transactions_java_indexed (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO transactions_java_indexed (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?) ON CONFLICT (txid, block_number) DO NOTHING";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             long totalBytes = 0;
