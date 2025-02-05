@@ -4,7 +4,6 @@ import org.bitcoinj.base.Sha256Hash;
 import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Transaction;
 import org.consensusj.bitcoin.jsonrpc.BitcoinClient;
-import java.net.URI;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,44 +12,17 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.logging.log4j.Logger;
 
 public class BitcoinBlockChainLoader {
-    private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
+    private static final Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
     private static final AtomicInteger writtenRecordsCounter = new AtomicInteger(0);
     private static final AtomicLong writtenBytesCounter = new AtomicLong(0);
 
-    private static Connection getDatabaseConnection() {
-        Connection connection = null;
-        try {
-            String url = "jdbc:postgresql://localhost:3004/bitcoin";
-            // String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
-            String user = "abc";
-            String password = "12345";
-
-            connection = DriverManager.getConnection(url, user, password);
-        } catch (SQLException e) {
-            logger.error("Database connection error: ", e);
-        }
-        return connection;
-    }
-
-    private static Connection refreshDatabaseConnection(Connection conn) throws SQLException {
-        try {
-            if (conn == null || conn.isClosed()) {
-                logger.debug("Refreshing database connection.");
-                conn = getDatabaseConnection();
-            }
-        } catch (SQLException e) {
-            logger.error("Error checking or refreshing database connection: ", e);
-            throw e;
-        }
-        return conn;
-    }
-
     public static int getHighestBlock(Connection conn) throws SQLException {
-        conn = refreshDatabaseConnection(conn);
+        conn = Utils.refreshDatabaseConnection(conn, logger);
         int highestBlock = 1;
-        String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java";
+        String sql = "SELECT COALESCE(MAX(block_number), 1) FROM transactions_java_indexed";
 
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -66,12 +38,12 @@ public class BitcoinBlockChainLoader {
 
     public static void writeTransactions(Connection conn, List<TransactionJava> transactions) throws SQLException {
         long startTime = System.currentTimeMillis(); // Start metering
-        conn = refreshDatabaseConnection(conn);
+        conn = Utils.refreshDatabaseConnection(conn, logger);
         if (conn == null || transactions == null || transactions.isEmpty()) {
             throw new SQLException("Connection is null or transactions list is empty.");
         }
 
-        String sql = "INSERT INTO transactions_java (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO transactions_java_indexed (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?)";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             long totalBytes = 0;
@@ -95,7 +67,7 @@ public class BitcoinBlockChainLoader {
         }
     }
 
-    public static List<TransactionJava> getTransactions(BitcoinClient btcCore, int blockNumber) {
+    public static List<TransactionJava> getTransactions(BitcoinClient btcCore, int blockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
         try {
             Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
@@ -107,31 +79,21 @@ public class BitcoinBlockChainLoader {
             }
         } catch (Exception e) {
             logger.error("Error getting transactions for block " + blockNumber + ": ", e);
+            throw e;
         }
         return transactions;
     }
 
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws Exception {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int maxBatchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Max batch size for DBWriter
         int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
         int queueSize = args.length > 4 ? Integer.parseInt(args[4]) : 100; // Queue size for transactionQueue
 
-        BitcoinClient btcCore;
-        try {
-            btcCore = new BitcoinClient(
-                // new URI("http://marcus-mini.is-very-nice.org:3003"),
-                new URI("http://localhost:3003"),
-                "bitcoinrpc",
-                "12345"
-            );
-        } catch (Exception e) {
-            logger.error("Error creating BitcoinClient: ", e);
-            return;
-        }
+        BitcoinClient btcCore = Utils.createBitcoinClient(logger);
 
-        Connection conn = getDatabaseConnection();
+        Connection conn = Utils.getDatabaseConnection(logger);
         if (conn == null) {
             logger.error("Failed to establish database connection. Exiting.");
             return;
@@ -146,7 +108,19 @@ public class BitcoinBlockChainLoader {
             blockReaderExecutor.submit(() -> {
                 while (true) {
                     int blockNumber = currentBlockNumber.getAndIncrement();
-                    List<TransactionJava> transactions = getTransactions(btcCore, blockNumber);
+                    List<TransactionJava> transactions = new ArrayList<>();
+                    try {
+                        transactions = getTransactions(btcCore, blockNumber);
+                    } catch (org.consensusj.jsonrpc.JsonRpcStatusException e) {
+                        if (e.getMessage().contains("Block height out of range")) {
+                            logger.error("Block height out of range for block " + blockNumber + ": ", e);
+                            System.exit(1);
+                        } else {
+                            throw e;
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error getting transactions for block " + blockNumber + ": ", e);
+                    }
                     try {
                         for (TransactionJava transaction : transactions) {
                             transactionQueue.put(transaction); // Use blocking call
