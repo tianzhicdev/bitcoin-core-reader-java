@@ -12,10 +12,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinBlockChainLoader {
     private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
     private static final AtomicInteger writtenRecordsCounter = new AtomicInteger(0);
+    private static final AtomicLong writtenBytesCounter = new AtomicLong(0);
 
     private static Connection getDatabaseConnection() {
         Connection connection = null;
@@ -72,15 +74,19 @@ public class BitcoinBlockChainLoader {
         String sql = "INSERT INTO transactions_java (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?)";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            long totalBytes = 0;
             for (TransactionJava transaction : transactions) {
                 pstmt.setString(1, transaction.getTxid());
                 pstmt.setInt(2, transaction.getBlockNumber());
-                pstmt.setBytes(3, transaction.getData());
+                byte[] data = transaction.getData();
+                pstmt.setBytes(3, data);
                 pstmt.setString(4, transaction.getReadableData());
                 pstmt.addBatch();
+                totalBytes += data.length; 
             }
             pstmt.executeBatch();
             writtenRecordsCounter.addAndGet(transactions.size());
+            writtenBytesCounter.addAndGet(totalBytes);
             long endTime = System.currentTimeMillis(); // End metering
             logger.debug("writeTransactions executed in " + (endTime - startTime) + " ms, number of transactions: " + transactions.size());
         } catch (SQLException e) {
@@ -186,6 +192,7 @@ public class BitcoinBlockChainLoader {
 
         long previousTime = System.currentTimeMillis();
         int previousWrittenRecords = writtenRecordsCounter.get();
+        long previousWrittenBytes = writtenBytesCounter.get();
 
         while (true) {
             long currentBlockNumberValue = currentBlockNumber.get();
@@ -194,10 +201,13 @@ public class BitcoinBlockChainLoader {
 
             if (timeElapsed >= 60000) { // 60,000 milliseconds = 1 minute
                 int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
-                logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Written Records Change Rate: " + writtenRecordsChangeRate + " per minute");
+                long writtenBytesChangeRate = writtenBytesCounter.get() - previousWrittenBytes;
+                double writtenMBChangeRate = writtenBytesChangeRate / (1024.0 * 1024.0);
+                logger.info("Current Block Number: " + currentBlockNumberValue + ", Queue Size: " + transactionQueue.size() + ", Written Records Change Rate: " + writtenRecordsChangeRate + " per minute, Written MB Change Rate: " + writtenMBChangeRate + " MB per minute");
 
                 previousTime = currentTime;
                 previousWrittenRecords = writtenRecordsCounter.get();
+                previousWrittenBytes = writtenBytesCounter.get();
             }
 
             try {
