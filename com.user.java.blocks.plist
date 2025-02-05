@@ -6,7 +6,7 @@
     <string>com.user.java.blocks</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java </string>
+        <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java</string>
         <string>-Xms4096m</string>
         <string>-Xmx8192m</string>
         <string>-jar</string>
