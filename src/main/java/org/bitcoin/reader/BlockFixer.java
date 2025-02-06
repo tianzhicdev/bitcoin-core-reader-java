@@ -4,6 +4,8 @@ import org.bitcoinj.base.Sha256Hash;
 import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Transaction;
 import org.consensusj.bitcoin.jsonrpc.BitcoinClient;
+
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,6 +24,11 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
+    protected int getHighestBlockNumber(Connection conn, String tableName) throws SQLException {
+        return 1;
+    }
+
+    @Override
     protected List<TransactionJava> read(int blockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
         try {
@@ -31,13 +38,18 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
             // Fetch existing txids from the database
             List<String> existingTxids = fetchExistingTxids(blockNumber);
 
+            boolean missingTransaction = false;
             for (Transaction tx : block.getTransactions()) {
                 String txid = tx.getTxId().toString();
                 if (!existingTxids.contains(txid)) {
                     logger.info("Missing transaction detected: txid = " + txid + ", block number = " + blockNumber);
                     TransactionJava transactionJava = new TransactionJava(txid, blockNumber, tx.serialize(), tx.toString());
                     transactions.add(transactionJava);
+                    missingTransaction = true;
                 }
+            }
+            if (!missingTransaction) {
+                logger.info("Block number is valid: " + blockNumber);
             }
         } catch (Exception e) {
             logger.error("Error getting transactions for block " + blockNumber + ": ", e);
