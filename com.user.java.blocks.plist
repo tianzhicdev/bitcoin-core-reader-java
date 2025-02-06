@@ -9,7 +9,7 @@
         <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java</string>
         <string>-Xms4096m</string>
         <string>-Xmx8192m</string>
-        <string>-Dlog4j.configurationFile=classpath:log4j2-blocks.xml</string>
+        <string>-Dlog4j.configurationFile=/Users/tianzhichen/projects/bitcoin-core-reader-java/src/main/resources/log4j2-blocks.xml</string>
         <string>-cp</string>
         <string>/Users/tianzhichen/projects/bitcoin-core-reader-java/target/bitcoin-core-reader-java-1.0-SNAPSHOT.jar</string>
         <string>org.bitcoin.reader.BlockProcessor</string>
