@@ -25,7 +25,7 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
         List<TransactionJava> transactions = new ArrayList<>();
         try {
             Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
-            BlockProcessor block = btcCore.getBlock(blockHash);
+            Block block = btcCore.getBlock(blockHash);
 
             for (Transaction tx : block.getTransactions()) {
                 TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
