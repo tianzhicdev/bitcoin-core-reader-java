@@ -27,10 +27,10 @@ ADD CONSTRAINT unique_balance_entry UNIQUE (address, txid, block_number);
 
 CREATE TABLE IF NOT EXISTS unprocessed_transactions_for_balance (
     txid VARCHAR(64) NOT NULL,
-    block_number INT NOT NULL
+    block_number INT NOT NULL,
+    UNIQUE (txid, block_number)
 );
 
 CREATE INDEX IF NOT EXISTS idx_unprocessed_transactions_for_balance_txid ON unprocessed_transactions_for_balance(txid);
 CREATE INDEX IF NOT EXISTS idx_unprocessed_transactions_for_balance_block_number ON unprocessed_transactions_for_balance(block_number);
-
 

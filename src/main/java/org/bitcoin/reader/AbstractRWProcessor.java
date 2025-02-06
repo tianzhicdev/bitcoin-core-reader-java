@@ -63,6 +63,28 @@ abstract public class AbstractRWProcessor<T> {
     protected abstract List<T> read(int blockNumber) throws Exception;
 
     protected abstract void write(List<T> records) throws SQLException;
+    protected void writeWithRetry(List<T> records, int maxRetries, long retryDelayMillis) throws SQLException {
+        int attempt = 0;
+        while (attempt <= maxRetries) {
+            try {
+                write(records);
+                return; // Exit if write is successful
+            } catch (SQLException e) {
+                attempt++;
+                if (attempt > maxRetries) {
+                    logger.error("Max retries reached. Failed to write records: ", e);
+                    throw e;
+                }
+                logger.warn("Write attempt " + attempt + " failed. Retrying in " + retryDelayMillis + "ms.", e);
+                try {
+                    Thread.sleep(retryDelayMillis);
+                } catch (InterruptedException ie) {
+                    logger.error("Retry sleep interrupted: ", ie);
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
 
     protected void periodicallyReport() {
         long previousTime = System.currentTimeMillis();
@@ -145,7 +167,7 @@ abstract public class AbstractRWProcessor<T> {
                             recordQueue.drainTo(batch, maxBatchSize);
                             if (!batch.isEmpty()) {
                                 logger.debug("Writer - Queue size: " + recordQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + Thread.currentThread().getName());
-                                write(batch);
+                                writeWithRetry(batch, 5, 1000);
                             }
                         } catch (Exception e) {
                             logger.error("Error in Writer thread: ", e);

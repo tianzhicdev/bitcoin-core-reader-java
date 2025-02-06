@@ -10,12 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.logging.log4j.Logger;
 
-public class BitcoinBlockChainLoader extends AbstractRWProcessor<TransactionJava> {
+public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     
-    private static final Logger logger = org.apache.logging.log4j.LogManager.getLogger(BitcoinBlockChainLoader.class);
+    private static final Logger logger = org.apache.logging.log4j.LogManager.getLogger(BlockProcessor.class);
     private final BitcoinClient btcCore;
 
-    public BitcoinBlockChainLoader() throws SQLException {
+    public BlockProcessor() throws SQLException {
         super(logger, "transactions_java_indexed");
         this.btcCore = Utils.createBitcoinClient(logger); // Assuming Utils has a method to create BitcoinClient
     }
@@ -25,7 +25,7 @@ public class BitcoinBlockChainLoader extends AbstractRWProcessor<TransactionJava
         List<TransactionJava> transactions = new ArrayList<>();
         try {
             Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
-            Block block = btcCore.getBlock(blockHash);
+            BlockProcessor block = btcCore.getBlock(blockHash);
 
             for (Transaction tx : block.getTransactions()) {
                 TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
@@ -77,7 +77,7 @@ public class BitcoinBlockChainLoader extends AbstractRWProcessor<TransactionJava
         int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
         int maxBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 10; // Max batch size for DBWriter
 
-        BitcoinBlockChainLoader loader = new BitcoinBlockChainLoader();
+        BlockProcessor loader = new BlockProcessor();
 
         loader.execute(x, y, queueSize, smallestSize, maxBatchSize);
     }
