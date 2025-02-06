@@ -16,6 +16,7 @@
         <string>10</string> <!-- Number of BlockReader threads -->
         <string>10</string> <!-- Number of DBWriter threads -->
         <string>100000</string> <!-- Queue size for transactionQueue -->
+        <string>10</string> <!-- read batch size -->
         <string>200</string> <!-- min batch size for DBWriter -->
         <string>2000</string> <!-- max batch size for DBWriter -->
     </array>

@@ -21,19 +21,21 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected List<TransactionJava> read(int blockNumber) throws Exception {
+    protected List<TransactionJava> read(int fromBlockNumber, int toBlockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
-        try {
-            Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
-            Block block = btcCore.getBlock(blockHash);
+        for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
+            try {
+                Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
+                Block block = btcCore.getBlock(blockHash);
 
-            for (Transaction tx : block.getTransactions()) {
-                TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
-                transactions.add(transactionJava);
+                for (Transaction tx : block.getTransactions()) {
+                    TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
+                    transactions.add(transactionJava);
+                }
+            } catch (Exception e) {
+                logger.error("Error getting transactions for block " + blockNumber + ": ", e);
+                throw e;
             }
-        } catch (Exception e) {
-            logger.error("Error getting transactions for block " + blockNumber + ": ", e);
-            throw e;
         }
         return transactions;
     }
@@ -74,11 +76,12 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int queueSize = args.length > 2 ? Integer.parseInt(args[2]) : 100; // Queue size for transactionQueue
-        int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
-        int maxBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 10; // Max batch size for DBWriter
+        int readBatchSize = args.length > 3 ? Integer.parseInt(args[3]) : 5; // Read batch size for BlockReader
+        int smallestSize = args.length > 4 ? Integer.parseInt(args[4]) : 20; // Smallest size for DBWriter
+        int maxBatchSize = args.length > 5 ? Integer.parseInt(args[5]) : 10; // Max batch size for DBWriter
 
         BlockProcessor loader = new BlockProcessor();
 
-        loader.execute(x, y, queueSize, smallestSize, maxBatchSize);
+        loader.execute(x, y, queueSize, readBatchSize, smallestSize, maxBatchSize);
     }
 }

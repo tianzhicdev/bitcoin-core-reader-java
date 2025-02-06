@@ -60,9 +60,10 @@ abstract public class AbstractRWProcessor<T> {
         return highestBlock;
     }
 
-    protected abstract List<T> read(int blockNumber) throws Exception;
+    protected abstract List<T> read(int fromBlockNumber, int toBlockNumber) throws Exception;
 
     protected abstract void write(List<T> records) throws SQLException;
+
     protected void writeWithRetry(List<T> records, int maxRetries, long retryDelayMillis) throws SQLException {
         int attempt = 0;
         while (attempt <= maxRetries) {
@@ -119,11 +120,12 @@ abstract public class AbstractRWProcessor<T> {
         }
     }
 
-    public void execute(int readerThreads, int writerThreads, int queueSize, int minBatchSize, int maxBatchSize) throws SQLException {
+    public void execute(int readerThreads, int writerThreads, int queueSize, int readBatchSize, int minBatchSize, int maxBatchSize) throws SQLException {
         logger.info("Executing with parameters: " +
                     "Reader Threads: " + readerThreads + ", " +
                     "Writer Threads: " + writerThreads + ", " +
                     "Queue Size: " + queueSize + ", " +
+                    "Read Batch Size: " + readBatchSize + ", " +
                     "Min Batch Size: " + minBatchSize + ", " +
                     "Max Batch Size: " + maxBatchSize);
         recordQueue = new ArrayBlockingQueue<>(queueSize);
@@ -134,15 +136,16 @@ abstract public class AbstractRWProcessor<T> {
         for (int i = 0; i < readerThreads; i++) {
             readerExecutor.submit(() -> {
                 while (true) {
-                    int blockNumber = currentBlockNumber.getAndIncrement();
+                    int fromBlockNumber = currentBlockNumber.getAndIncrement();
+                    int toBlockNumber = fromBlockNumber + readBatchSize; // Example logic to determine the range
                     try {
-                        List<T> records = read(blockNumber);
+                        List<T> records = read(fromBlockNumber, toBlockNumber);
                         for (T record : records) {
                             recordQueue.put(record); // Use blocking call
                         }
-                        logger.debug("Reader - Block number: " + blockNumber + ", Queue size: " + recordQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                        logger.debug("Reader - From block number: " + fromBlockNumber + " to block number: " + toBlockNumber + ", Queue size: " + recordQueue.size() + ", Thread name: " + Thread.currentThread().getName());
                     } catch (Exception e) {
-                        logger.error("Error reading records for block " + blockNumber + ": ", e);
+                        logger.error("Error reading records for block range " + fromBlockNumber + " to " + toBlockNumber + ": ", e);
                     }
                 }
             });

@@ -18,7 +18,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>org.bitcoin.reader.BitcoinBlockChainLoader</mainClass>
+                  <mainClass>org.bitcoin.reader.BlockProcessor</mainClass>
                 </transformer>
               </transformers>
               <filters>

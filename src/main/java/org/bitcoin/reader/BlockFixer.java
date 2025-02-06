@@ -29,41 +29,47 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected List<TransactionJava> read(int blockNumber) throws Exception {
+    protected List<TransactionJava> read(int fromBlockNumber, int toBlockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
-        try {
-            Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
-            Block block = btcCore.getBlock(blockHash);
+        List<String> existingTxids = fetchExistingTxids(fromBlockNumber, toBlockNumber);
 
-            // Fetch existing txids from the database
-            List<String> existingTxids = fetchExistingTxids(blockNumber);
+        boolean allBlocksValid = true;
+        for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
+            try {
+                Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
+                Block block = btcCore.getBlock(blockHash);
 
-            boolean missingTransaction = false;
-            for (Transaction tx : block.getTransactions()) {
-                String txid = tx.getTxId().toString();
-                if (!existingTxids.contains(txid)) {
-                    logger.info("Missing transaction detected: txid = " + txid + ", block number = " + blockNumber);
-                    TransactionJava transactionJava = new TransactionJava(txid, blockNumber, tx.serialize(), tx.toString());
-                    transactions.add(transactionJava);
-                    missingTransaction = true;
+                boolean missingTransaction = false;
+                for (Transaction tx : block.getTransactions()) {
+                    String txid = tx.getTxId().toString();
+                    if (!existingTxids.contains(txid)) {
+                        logger.info("Missing transaction detected: txid = " + txid + ", block number = " + blockNumber);
+                        TransactionJava transactionJava = new TransactionJava(txid, blockNumber, tx.serialize(), tx.toString());
+                        transactions.add(transactionJava);
+                        missingTransaction = true;
+                    }
                 }
+                if (missingTransaction) {
+                    allBlocksValid = false;
+                }
+            } catch (Exception e) {
+                logger.error("Error getting transactions for block " + blockNumber + ": ", e);
+                throw e;
             }
-            if (!missingTransaction) {
-                logger.info("Block number is valid: " + blockNumber);
-            }
-        } catch (Exception e) {
-            logger.error("Error getting transactions for block " + blockNumber + ": ", e);
-            throw e;
+        }
+        if (allBlocksValid) {
+            logger.info("All blocks are valid from block number " + fromBlockNumber + " to block number " + toBlockNumber);
         }
         return transactions;
     }
 
-    private List<String> fetchExistingTxids(int blockNumber) throws SQLException {
+    private List<String> fetchExistingTxids(int fromBlockNumber, int toBlockNumber) throws SQLException {
         List<String> txids = new ArrayList<>();
-        String sql = "SELECT txid FROM transactions_java_indexed WHERE block_number = ?";
+        String sql = "SELECT txid FROM transactions_java_indexed WHERE block_number >= ? AND block_number < ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, blockNumber);
-            ResultSet resultSet = pstmt.executeQuery(); // Changed 'var' to 'ResultSet'
+            pstmt.setInt(1, fromBlockNumber);
+            pstmt.setInt(2, toBlockNumber);
+            ResultSet resultSet = pstmt.executeQuery();
             while (resultSet.next()) {
                 txids.add(resultSet.getString("txid"));
             }
@@ -104,14 +110,15 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
     }
 
     public static void main(String[] args) throws Exception {
-        int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
-        int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
+        int readerThreads = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
+        int writerThreads = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int queueSize = args.length > 2 ? Integer.parseInt(args[2]) : 100; // Queue size for transactionQueue
-        int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
-        int maxBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 10; // Max batch size for DBWriter
+        int readBatchSize = args.length > 3 ? Integer.parseInt(args[3]) : 5; // Read batch size for BlockReader
+        int minBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 20; // Smallest size for DBWriter
+        int maxBatchSize = args.length > 5 ? Integer.parseInt(args[5]) : 10; // Max batch size for DBWriter
 
         BlockFixer loader = new BlockFixer();
 
-        loader.execute(x, y, queueSize, smallestSize, maxBatchSize);
+        loader.execute(readerThreads, writerThreads, queueSize, readBatchSize, minBatchSize, maxBatchSize);
     }
 }
