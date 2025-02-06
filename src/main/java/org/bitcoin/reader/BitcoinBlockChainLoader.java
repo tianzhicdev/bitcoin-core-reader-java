@@ -73,9 +73,9 @@ public class BitcoinBlockChainLoader extends AbstractRWProcessor<TransactionJava
     public static void main(String[] args) throws Exception {
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
-        int queueSize = args.length > 4 ? Integer.parseInt(args[4]) : 100; // Queue size for transactionQueue
+        int queueSize = args.length > 2 ? Integer.parseInt(args[2]) : 100; // Queue size for transactionQueue
         int smallestSize = args.length > 3 ? Integer.parseInt(args[3]) : 20; // Smallest size for DBWriter
-        int maxBatchSize = args.length > 2 ? Integer.parseInt(args[2]) : 10; // Max batch size for DBWriter
+        int maxBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 10; // Max batch size for DBWriter
 
         BitcoinBlockChainLoader loader = new BitcoinBlockChainLoader();
 
