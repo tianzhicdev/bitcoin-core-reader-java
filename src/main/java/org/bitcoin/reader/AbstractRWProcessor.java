@@ -136,7 +136,7 @@ abstract public class AbstractRWProcessor<T> {
         for (int i = 0; i < readerThreads; i++) {
             readerExecutor.submit(() -> {
                 while (true) {
-                    int fromBlockNumber = currentBlockNumber.getAndIncrement();
+                    int fromBlockNumber = currentBlockNumber.getAndAdd(readBatchSize);
                     int toBlockNumber = fromBlockNumber + readBatchSize; // Example logic to determine the range
                     try {
                         List<T> records = read(fromBlockNumber, toBlockNumber);
