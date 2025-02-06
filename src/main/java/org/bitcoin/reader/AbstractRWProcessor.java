@@ -98,6 +98,12 @@ abstract public class AbstractRWProcessor<T> {
     }
 
     public void execute(int readerThreads, int writerThreads, int queueSize, int minBatchSize, int maxBatchSize) throws SQLException {
+        logger.info("Executing with parameters: " +
+                    "Reader Threads: " + readerThreads + ", " +
+                    "Writer Threads: " + writerThreads + ", " +
+                    "Queue Size: " + queueSize + ", " +
+                    "Min Batch Size: " + minBatchSize + ", " +
+                    "Max Batch Size: " + maxBatchSize);
         recordQueue = new ArrayBlockingQueue<>(queueSize);
         currentBlockNumber = new AtomicInteger(getHighestBlockNumber(conn, table)); // Initialize with a starting block number
 
