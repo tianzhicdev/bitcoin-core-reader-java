@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.user.java.blocks</string>
+    <string>com.user.java.blocks.fixer</string>
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java</string>
