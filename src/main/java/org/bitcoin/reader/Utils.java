@@ -71,7 +71,7 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
     }
 
 
-    public static String getOutputAddress(TransactionOutput o) {
+    public static String getOutputAddress(TransactionOutput o, Logger logger) {
         try {
             byte[] pubKeyHash = o.getScriptPubKey().getPubKeyHash(); // this is the address
             return BaseEncoding.base16().encode(pubKeyHash);
@@ -119,7 +119,7 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
 
     
 
-    public static List<BalanceRecord> getBalanceRecords(Connection conn, Transaction transaction, int blockNumber) throws SQLException {
+    public static List<BalanceRecord> getBalanceRecords(Connection conn, Transaction transaction, int blockNumber, Logger logger) throws SQLException {
     List<BalanceRecord> balanceRecords = new ArrayList<>();
     List<TransactionInput> inputs = transaction.getInputs();
     List<TransactionOutput> outputs = transaction.getOutputs();
@@ -135,12 +135,12 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
             long inputTransactionIndex = i.getOutpoint().index();
             // Transaction prevTransaction = getTransaction(conn, inputTransactionId);
             TransactionOutput prevOutput = getTransactionOutput(conn, inputTransactionId, (int) inputTransactionIndex);
-            String hashAddr = getOutputAddress(prevOutput);
+            String hashAddr = getOutputAddress(prevOutput, logger);
             balanceRecords.add(new BalanceRecord(hashAddr, transaction.getTxId().toString(), blockNumber, -i.getValue().getValue()));
         }
     }
     for (TransactionOutput o: outputs){
-        String hashAddr = getOutputAddress(o);
+        String hashAddr = getOutputAddress(o, logger);
         // todo: if null, add to unprocessed_transactions
         balanceRecords.add(new BalanceRecord(hashAddr, transaction.getTxId().toString(), blockNumber, o.getValue().getValue()));
     }

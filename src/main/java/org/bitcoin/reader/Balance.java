@@ -56,7 +56,7 @@ public class Balance {
                 List<Transaction> transactions = Utils.getTransactions(conn, blockNumber);
                 for (Transaction transaction : transactions) {
                     try {
-                        List<BalanceRecord> balances = Utils.getBalanceRecords(conn, transaction, blockNumber);
+                        List<BalanceRecord> balances = Utils.getBalanceRecords(conn, transaction, blockNumber, logger);
                         writeBalances(conn, balances, logger);
                     } catch (Exception e) {
                         logger.error("Error processing transaction: ", e);
