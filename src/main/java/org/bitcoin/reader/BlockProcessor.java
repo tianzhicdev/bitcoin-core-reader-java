@@ -4,6 +4,8 @@ import org.bitcoinj.base.Sha256Hash;
 import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Transaction;
 import org.consensusj.bitcoin.jsonrpc.BitcoinClient;
+
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -43,32 +45,57 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     @Override
     protected void write(List<TransactionJava> transactions) throws SQLException {
         long startTime = System.currentTimeMillis(); // Start metering
-        refreshDatabaseConnection(); // Corrected method call
-        if (conn == null || transactions == null || transactions.isEmpty()) {
+        Connection connection = refreshDatabaseConnection();
+        if (connection == null || transactions == null || transactions.isEmpty()) {
             throw new SQLException("Connection is null or transactions list is empty.");
         }
 
-        String sql = "INSERT INTO transactions_java_indexed (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?) ON CONFLICT (txid, block_number) DO NOTHING";
+        // Save original auto-commit setting so we can restore it later
+        boolean originalAutoCommit = connection.getAutoCommit();
+        try {
+            // Turn off auto-commit so that we control the transaction boundaries
+            connection.setAutoCommit(false);
 
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            String sql = "INSERT INTO transactions_java_indexed " +
+                        "(txid, block_number, data, readable_data) " +
+                        "VALUES (?, ?, ?, ?) " +
+                        "ON CONFLICT (txid, block_number) DO NOTHING";
+
             long totalBytes = 0;
-            for (TransactionJava transaction : transactions) {
-                pstmt.setString(1, transaction.getTxid());
-                pstmt.setInt(2, transaction.getBlockNumber());
-                byte[] data = transaction.getData();
-                pstmt.setBytes(3, data);
-                pstmt.setString(4, transaction.getReadableData());
-                pstmt.addBatch();
-                totalBytes += data.length; 
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                for (TransactionJava transaction : transactions) {
+                    pstmt.setString(1, transaction.getTxid());
+                    pstmt.setInt(2, transaction.getBlockNumber());
+                    byte[] data = transaction.getData();
+                    pstmt.setBytes(3, data);
+                    pstmt.setString(4, transaction.getReadableData());
+                    pstmt.addBatch();
+                    totalBytes += data.length;
+                }
+                pstmt.executeBatch();
             }
-            pstmt.executeBatch();
+
+            // Commit the transaction explicitly
+            connection.commit();
+
             writtenRecordsCounter.addAndGet(transactions.size());
             writtenBytesCounter.addAndGet(totalBytes);
             long endTime = System.currentTimeMillis(); // End metering
-            logger.debug("writeTransactions executed in " + (endTime - startTime) + " ms, number of transactions: " + transactions.size());
+
+            logger.debug("writeTransactions executed in " + (endTime - startTime) +
+                        " ms, number of transactions: " + transactions.size());
         } catch (SQLException e) {
+            // Roll back in case of an error
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                logger.error("Error during transaction rollback: ", rollbackEx);
+            }
             logger.error("Error writing transactions: ", e);
             throw e;
+        } finally {
+            // Restore the original auto-commit setting
+            connection.setAutoCommit(originalAutoCommit);
         }
     }
 

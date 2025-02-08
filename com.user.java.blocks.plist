@@ -14,7 +14,7 @@
         <string>/Users/tianzhichen/projects/bitcoin-core-reader-java/target/bitcoin-core-reader-java-1.0-SNAPSHOT.jar</string>
         <string>org.bitcoin.reader.BlockProcessor</string>
         <string>10</string> <!-- Number of BlockReader threads -->
-        <string>10</string> <!-- Number of DBWriter threads -->
+        <string>30</string> <!-- Number of DBWriter threads -->
         <string>100000</string> <!-- Queue size for transactionQueue -->
         <string>10</string> <!-- read batch size -->
         <string>200</string> <!-- min batch size for DBWriter -->
