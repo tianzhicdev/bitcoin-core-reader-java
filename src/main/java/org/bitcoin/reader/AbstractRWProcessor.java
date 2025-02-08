@@ -110,12 +110,15 @@ abstract public class AbstractRWProcessor<T> {
                             ", MB/min: " + writtenMBChangeRate);
 
                 StringBuilder logMessage = new StringBuilder("Thread Records/min: ");
-                for (String threadName : threadWrittenRecordsCounter.keySet()) {
-                    int currentThreadRecords = threadWrittenRecordsCounter.get(threadName).get();
-                    int threadRecordsChangeRate = currentThreadRecords - previousThreadRecords.getOrDefault(threadName, 0);
-                    logMessage.append(threadName).append(": ").append(threadRecordsChangeRate).append(", ");
-                    previousThreadRecords.put(threadName, currentThreadRecords);
-                }
+                threadWrittenRecordsCounter.entrySet().stream()
+                    .sorted((e1, e2) -> e2.getValue().get() - e1.getValue().get()) // Sort by currentThreadRecords in descending order
+                    .forEach(entry -> {
+                        String threadName = entry.getKey();
+                        int currentThreadRecords = entry.getValue().get();
+                        int threadRecordsChangeRate = currentThreadRecords - previousThreadRecords.getOrDefault(threadName, 0);
+                        logMessage.append(threadName).append(": ").append(threadRecordsChangeRate).append(", ");
+                        previousThreadRecords.put(threadName, currentThreadRecords);
+                    });
                 logger.info(logMessage.toString());
 
                 previousTime = currentTime;
@@ -148,7 +151,7 @@ abstract public class AbstractRWProcessor<T> {
         for (int i = 0; i < readerThreads; i++) {
             final int readerIndex = i;
             readerExecutor.submit(() -> {
-                Thread.currentThread().setName("Reader-Thread-" + readerIndex);
+                Thread.currentThread().setName("RT-" + readerIndex);
                 while (true) {
                     int fromBlockNumber = currentBlockNumber.getAndAdd(readBatchSize);
                     int toBlockNumber = fromBlockNumber + readBatchSize; // Example logic to determine the range
@@ -170,7 +173,7 @@ abstract public class AbstractRWProcessor<T> {
         for (int i = 0; i < writerThreads; i++) {
             final int writerIndex = i;
             writerExecutor.submit(() -> {
-                String threadName = "Writer-Thread-" + writerIndex;
+                String threadName = "WT-" + writerIndex;
                 Thread.currentThread().setName(threadName);
                 threadWrittenRecordsCounter.put(threadName, new AtomicInteger(0));
 
