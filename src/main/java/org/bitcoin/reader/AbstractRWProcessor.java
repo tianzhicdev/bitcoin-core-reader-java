@@ -93,6 +93,7 @@ abstract public class AbstractRWProcessor<T> {
         long previousTime = System.currentTimeMillis();
         int previousWrittenRecords = writtenRecordsCounter.get();
         long previousWrittenBytes = writtenBytesCounter.get();
+        ConcurrentHashMap<String, Integer> previousThreadRecords = new ConcurrentHashMap<>();
 
         while (true) {
             long currentBlockNumberValue = currentBlockNumber.get();
@@ -103,16 +104,19 @@ abstract public class AbstractRWProcessor<T> {
                 int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
                 long writtenBytesChangeRate = writtenBytesCounter.get() - previousWrittenBytes;
                 double writtenMBChangeRate = writtenBytesChangeRate / (1024.0 * 1024.0);
-                logger.info("Block Number: " + currentBlockNumberValue + 
-                            "\nQueue Size: " + recordQueue.size() + 
-                            "\nRecords Change Rate: " + writtenRecordsChangeRate + " records/min" + 
-                            "\nData Change Rate: " + writtenMBChangeRate + " MB/min");
+                logger.info("Block: " + currentBlockNumberValue + 
+                            ", Queue: " + recordQueue.size() + 
+                            ", Records/min: " + writtenRecordsChangeRate + 
+                            ", MB/min: " + writtenMBChangeRate);
 
+                StringBuilder logMessage = new StringBuilder("Thread Records/min: ");
                 for (String threadName : threadWrittenRecordsCounter.keySet()) {
-                    int threadWrittenRecords = threadWrittenRecordsCounter.get(threadName).get();
-                    logger.info("Thread: " + threadName + 
-                                "\nRecords Written: " + threadWrittenRecords);
+                    int currentThreadRecords = threadWrittenRecordsCounter.get(threadName).get();
+                    int threadRecordsChangeRate = currentThreadRecords - previousThreadRecords.getOrDefault(threadName, 0);
+                    logMessage.append(threadName).append(": ").append(threadRecordsChangeRate).append(", ");
+                    previousThreadRecords.put(threadName, currentThreadRecords);
                 }
+                logger.info(logMessage.toString());
 
                 previousTime = currentTime;
                 previousWrittenRecords = writtenRecordsCounter.get();
@@ -153,7 +157,7 @@ abstract public class AbstractRWProcessor<T> {
                         for (T record : records) {
                             recordQueue.put(record); // Use blocking call
                         }
-                        logger.debug("Reader - From block number: " + fromBlockNumber + " to block number: " + toBlockNumber + ", Queue size: " + recordQueue.size() + ", Thread name: " + Thread.currentThread().getName());
+                        logger.debug("Reader - From block: " + fromBlockNumber + " to block: " + toBlockNumber + ", Queue: " + recordQueue.size() + ", Thread: " + Thread.currentThread().getName());
                     } catch (Exception e) {
                         logger.error("Error reading records for block range " + fromBlockNumber + " to " + toBlockNumber + ": ", e);
                     }
@@ -174,7 +178,7 @@ abstract public class AbstractRWProcessor<T> {
                     if (recordQueue.size() < minBatchSize) {
                         try {
                             Thread.sleep(10000); // Sleep for 10 seconds
-                            logger.debug("Writer - Waiting for more records. Current queue size: " + recordQueue.size() + ", Thread name: " + threadName);
+                            logger.debug("Writer - Waiting for more records. Queue: " + recordQueue.size() + ", Thread: " + threadName);
                         } catch (InterruptedException e) {
                             logger.error("Error in Writer sleep: ", e);
                             Thread.currentThread().interrupt(); // Restore interrupted status
@@ -184,7 +188,7 @@ abstract public class AbstractRWProcessor<T> {
                         try {
                             recordQueue.drainTo(batch, maxBatchSize);
                             if (!batch.isEmpty()) {
-                                logger.debug("Writer - Queue size: " + recordQueue.size() + ", Batch size: " + batch.size() + ", Thread name: " + threadName);
+                                logger.debug("Writer - Queue: " + recordQueue.size() + ", Batch: " + batch.size() + ", Thread: " + threadName);
                                 writeWithRetry(batch, 5, 1000);
 
                                 // Update per-thread counters
