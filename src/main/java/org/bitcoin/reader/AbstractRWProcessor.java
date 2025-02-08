@@ -22,7 +22,6 @@ abstract public class AbstractRWProcessor<T> {
     protected AtomicInteger currentBlockNumber;
     protected BlockingQueue<T> recordQueue;
     protected ConcurrentHashMap<String, AtomicInteger> threadWrittenRecordsCounter = new ConcurrentHashMap<>();
-    protected ConcurrentHashMap<String, AtomicLong> threadWrittenBytesCounter = new ConcurrentHashMap<>();
 
     protected Connection refreshDatabaseConnection() throws SQLException {
         try {
@@ -111,11 +110,8 @@ abstract public class AbstractRWProcessor<T> {
 
                 for (String threadName : threadWrittenRecordsCounter.keySet()) {
                     int threadWrittenRecords = threadWrittenRecordsCounter.get(threadName).get();
-                    long threadWrittenBytes = threadWrittenBytesCounter.get(threadName).get();
-                    double threadWrittenMB = threadWrittenBytes / (1024.0 * 1024.0);
                     logger.info("Thread: " + threadName + 
-                                "\nRecords Written: " + threadWrittenRecords + 
-                                "\nData Written: " + threadWrittenMB + " MB");
+                                "\nRecords Written: " + threadWrittenRecords);
                 }
 
                 previousTime = currentTime;
@@ -173,7 +169,6 @@ abstract public class AbstractRWProcessor<T> {
                 String threadName = "Writer-Thread-" + writerIndex;
                 Thread.currentThread().setName(threadName);
                 threadWrittenRecordsCounter.put(threadName, new AtomicInteger(0));
-                threadWrittenBytesCounter.put(threadName, new AtomicLong(0));
 
                 while (true) {
                     if (recordQueue.size() < minBatchSize) {
@@ -194,8 +189,6 @@ abstract public class AbstractRWProcessor<T> {
 
                                 // Update per-thread counters
                                 threadWrittenRecordsCounter.get(threadName).addAndGet(batch.size());
-                                long batchBytes = batch.stream().mapToLong(record -> ((byte[]) record).length).sum(); // Assuming T is byte[]
-                                threadWrittenBytesCounter.get(threadName).addAndGet(batchBytes);
                             }
                         } catch (Exception e) {
                             logger.error("Error in Writer thread: ", e);
