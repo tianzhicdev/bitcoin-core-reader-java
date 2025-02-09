@@ -43,59 +43,27 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected void write(List<TransactionJava> transactions) throws SQLException {
-        long startTime = System.currentTimeMillis(); // Start metering
-        Connection connection = refreshDatabaseConnection();
-        if (connection == null || transactions == null || transactions.isEmpty()) {
-            throw new SQLException("Connection is null or transactions list is empty.");
-        }
+    protected void write(Connection conn, List<TransactionJava> transactions) throws SQLException {
 
-        // Save original auto-commit setting so we can restore it later
-        boolean originalAutoCommit = connection.getAutoCommit();
-        try {
-            // Turn off auto-commit so that we control the transaction boundaries
-            connection.setAutoCommit(false);
+        String sql = "INSERT INTO transactions_java_indexed " +
+                    "(txid, block_number, data, readable_data) " +
+                    "VALUES (?, ?, ?, ?) " +
+                    "ON CONFLICT (txid, block_number) DO NOTHING";
 
-            String sql = "INSERT INTO transactions_java_indexed " +
-                        "(txid, block_number, data, readable_data) " +
-                        "VALUES (?, ?, ?, ?) " +
-                        "ON CONFLICT (txid, block_number) DO NOTHING";
-
-            long totalBytes = 0;
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-                for (TransactionJava transaction : transactions) {
-                    pstmt.setString(1, transaction.getTxid());
-                    pstmt.setInt(2, transaction.getBlockNumber());
-                    byte[] data = transaction.getData();
-                    pstmt.setBytes(3, data);
-                    pstmt.setString(4, transaction.getReadableData());
-                    pstmt.addBatch();
-                    totalBytes += data.length;
-                }
-                pstmt.executeBatch();
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (TransactionJava transaction : transactions) {
+                pstmt.setString(1, transaction.getTxid());
+                pstmt.setInt(2, transaction.getBlockNumber());
+                byte[] data = transaction.getData();
+                writtenBytesCounter.addAndGet(data.length);
+                pstmt.setBytes(3, data);
+                pstmt.setString(4, transaction.getReadableData());
+                pstmt.addBatch();
             }
-
-            // Commit the transaction explicitly
-            connection.commit();
-
-            writtenRecordsCounter.addAndGet(transactions.size());
-            writtenBytesCounter.addAndGet(totalBytes);
-            long endTime = System.currentTimeMillis(); // End metering
-
-            logger.debug("writeTransactions executed in " + (endTime - startTime) +
-                        " ms, number of transactions: " + transactions.size());
+            pstmt.executeBatch();
         } catch (SQLException e) {
-            // Roll back in case of an error
-            try {
-                connection.rollback();
-            } catch (SQLException rollbackEx) {
-                logger.error("Error during transaction rollback: ", rollbackEx);
-            }
             logger.error("Error writing transactions: ", e);
             throw e;
-        } finally {
-            // Restore the original auto-commit setting
-            connection.setAutoCommit(originalAutoCommit);
         }
     }
 

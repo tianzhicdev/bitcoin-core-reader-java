@@ -64,14 +64,39 @@ abstract public class AbstractRWProcessor<T> {
 
     protected abstract List<T> read(int fromBlockNumber, int toBlockNumber) throws Exception;
 
-    protected abstract void write(List<T> records) throws SQLException;
+    protected abstract void write(Connection conn, List<T> records) throws SQLException;
 
     protected void writeWithRetry(List<T> records, int maxRetries, long retryDelayMillis) throws SQLException {
         int attempt = 0;
         while (attempt <= maxRetries) {
+            Connection connection = null;
             try {
-                write(records);
-                return; // Exit if write is successful
+                connection = refreshDatabaseConnection();
+                if (connection == null || records == null || records.isEmpty()) {
+                    throw new SQLException("Connection is null or records list is empty.");
+                }
+
+                // Save original auto-commit setting so we can restore it later
+                boolean originalAutoCommit = connection.getAutoCommit();
+                try {
+                    connection.setAutoCommit(false);
+                    write(connection, records);
+                    connection.commit();
+                    writtenRecordsCounter.addAndGet(records.size());
+
+                    return; // Exit if write is successful
+                } catch (SQLException e) {
+                    // Roll back in case of an error
+                    try {
+                        connection.rollback();
+                    } catch (SQLException rollbackEx) {
+                        logger.error("Error during transaction rollback: ", rollbackEx);
+                    }
+                    throw e;
+                } finally {
+                    // Restore the original auto-commit setting
+                    connection.setAutoCommit(originalAutoCommit);
+                }
             } catch (SQLException e) {
                 attempt++;
                 if (attempt > maxRetries) {

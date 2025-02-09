@@ -25,7 +25,7 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
 
     @Override
     protected int getHighestBlockNumber(Connection conn, String tableName) throws SQLException {
-        return 1;
+        return 400000;
     }
 
     @Override
@@ -78,17 +78,10 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected void write(List<TransactionJava> transactions) throws SQLException {
-        long startTime = System.currentTimeMillis(); // Start metering
-        refreshDatabaseConnection(); // Corrected method call
-        if (conn == null || transactions == null || transactions.isEmpty()) {
-            throw new SQLException("Connection is null or transactions list is empty.");
-        }
+    protected void write(Connection conn, List<TransactionJava> transactions) throws SQLException {
 
         String sql = "INSERT INTO transactions_java_indexed (txid, block_number, data, readable_data) VALUES (?, ?, ?, ?) ON CONFLICT (txid, block_number) DO NOTHING";
-
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            long totalBytes = 0;
             for (TransactionJava transaction : transactions) {
                 pstmt.setString(1, transaction.getTxid());
                 pstmt.setInt(2, transaction.getBlockNumber());
@@ -96,14 +89,9 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
                 pstmt.setBytes(3, data);
                 pstmt.setString(4, transaction.getReadableData());
                 pstmt.addBatch();
-                totalBytes += data.length; 
             }
             pstmt.executeBatch();
-            writtenRecordsCounter.addAndGet(transactions.size());
-            writtenBytesCounter.addAndGet(totalBytes);
-            long endTime = System.currentTimeMillis(); // End metering
-            logger.debug("writeTransactions executed in " + (endTime - startTime) + " ms, number of transactions: " + transactions.size());
-        } catch (SQLException e) {
+       } catch (SQLException e) {
             logger.error("Error writing transactions: ", e);
             throw e;
         }

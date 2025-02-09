@@ -47,20 +47,18 @@ public class Balance extends AbstractRWProcessor<BalanceRecord> {
     }
 
     @Override
-    protected void write(List<BalanceRecord> balanceList) throws SQLException {
-        try (Connection conn = refreshDatabaseConnection()) {
-            for (BalanceRecord balance : balanceList) {
-                try (PreparedStatement pstmt = conn.prepareStatement(
-                        "INSERT INTO balance_java (address, txid, block_number, balance) VALUES (?, ?, ?, ?) ON CONFLICT (address, txid, block_number) DO NOTHING")) {
-                    pstmt.setString(1, balance.getAddress());
-                    pstmt.setString(2, balance.getTxid());
-                    pstmt.setInt(3, balance.getBlockNumber());
-                    pstmt.setFloat(4, balance.getBalance());
-                    pstmt.executeUpdate();
-                } catch (SQLException e) {
-                    logger.error("Error writing balance record to database: ", e);
-                    throw e;
-                }
+    protected void write(Connection conn, List<BalanceRecord> balanceList) throws SQLException {
+        for (BalanceRecord balance : balanceList) {
+            try (PreparedStatement pstmt = conn.prepareStatement(
+                    "INSERT INTO balance_java (address, txid, block_number, balance) VALUES (?, ?, ?, ?) ON CONFLICT (address, txid, block_number) DO NOTHING")) {
+                pstmt.setString(1, balance.getAddress());
+                pstmt.setString(2, balance.getTxid());
+                pstmt.setInt(3, balance.getBlockNumber());
+                pstmt.setFloat(4, balance.getBalance());
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                logger.error("Error writing balance record to database: ", e);
+                throw e;
             }
         }
     }
