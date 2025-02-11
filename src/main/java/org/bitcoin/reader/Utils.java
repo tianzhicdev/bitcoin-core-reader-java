@@ -25,8 +25,8 @@ public class Utils {
         public static Connection getDatabaseConnection(Logger logger) throws SQLException{
         Connection connection = null; // todo: make this a singleton
         try {
-            // String url = "jdbc:postgresql://localhost:3004/bitcoin";
-            String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
+            String url = "jdbc:postgresql://localhost:3004/bitcoin";
+            // String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
             String user = "abc";
             String password = "12345";
 
@@ -77,7 +77,7 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
             return BaseEncoding.base16().encode(pubKeyHash);
         } 
         catch (ScriptException e) {
-            logger.info("Script Exception caught: ", e);
+            logger.debug("Script Exception caught: ", e);
             if(ScriptPattern.isP2PK(o.getScriptPubKey())){
                 byte[] publicKey = ScriptPattern.extractKeyFromP2PK(o.getScriptPubKey());
                 return BaseEncoding.base16().encode(publicKey);
