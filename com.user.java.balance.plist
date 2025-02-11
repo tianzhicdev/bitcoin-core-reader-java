@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.java.balance</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/Cellar/openjdk/23.0.2/bin/java</string>
+        <string>-Xms4096m</string>
+        <string>-Xmx8192m</string>
+        <string>-Dlog4j.configurationFile=/Users/tianzhichen/projects/bitcoin-core-reader-java/src/main/resources/log4j2-balance.xml</string>
+        <string>-cp</string>
+        <string>/Users/tianzhichen/projects/bitcoin-core-reader-java/target/bitcoin-core-reader-java-1.0-SNAPSHOT.jar</string>
+        <string>org.bitcoin.reader.BalanceProcessor</string>
+        <string>10</string> <!-- Number of BlockReader threads -->
+        <string>50</string> <!-- Number of DBWriter threads -->
+        <string>500000</string> <!-- Queue size for transactionQueue -->
+        <string>10</string> <!-- read batch size -->
+        <string>200</string> <!-- min batch size for DBWriter -->
+        <string>2000</string> <!-- max batch size for DBWriter -->
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/logs/plist/bitcoin-balance-loader.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/logs/plist/bitcoin-balance-loader.err</string>
+</dict>
+</plist>

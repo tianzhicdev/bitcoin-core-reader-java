@@ -8,11 +8,11 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Transaction;
 
-public class Balance extends AbstractRWProcessor<BalanceRecord> {
+public class BalanceProcessor extends AbstractRWProcessor<BalanceRecord> {
 
-    private static final Logger logger = org.apache.logging.log4j.LogManager.getLogger(Balance.class);
+    private static final Logger logger = org.apache.logging.log4j.LogManager.getLogger(BalanceProcessor.class);
 
-    public Balance() throws SQLException {
+    public BalanceProcessor() throws SQLException {
         super(logger, "balance_java");
     }
 
@@ -71,7 +71,7 @@ public class Balance extends AbstractRWProcessor<BalanceRecord> {
         int minBatchSize = args.length > 4 ? Integer.parseInt(args[4]) : 20; // Smallest size for DBWriter
         int maxBatchSize = args.length > 5 ? Integer.parseInt(args[5]) : 10; // Max batch size for DBWriter
 
-        Balance processor = new Balance();
+        BalanceProcessor processor = new BalanceProcessor();
         processor.execute(readerThreads, writerThreads, queueSize, readBatchSize, minBatchSize, maxBatchSize);
     }
 }
