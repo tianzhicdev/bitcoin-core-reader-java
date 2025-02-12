@@ -14,16 +14,25 @@ import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.Logger;
 
+
+// rewrite this class so abstractrwprocessor<T> contructer takes in a list of readers and writers and run them. 
+// everything else remain as is
+// abstract class reader extends thread
+    // read func
+// worker extends thread
+   // write
+
+
 abstract public class AbstractRWProcessor<T> {
 
     protected Logger logger;
     protected String table;
-    protected Connection conn;
+    // protected Connection conn;
     protected AtomicInteger currentBlockNumber;
     protected BlockingQueue<T> recordQueue;
     protected ConcurrentHashMap<String, AtomicInteger> threadWrittenRecordsCounter = new ConcurrentHashMap<>();
 
-    protected Connection refreshDatabaseConnection() throws SQLException {
+    protected Connection refreshDatabaseConnection(Connection conn) throws SQLException {
         try {
             if (conn == null || conn.isClosed()) {
                 logger.debug("Refreshing database connection.");
@@ -39,7 +48,7 @@ abstract public class AbstractRWProcessor<T> {
     public AbstractRWProcessor(Logger logger, String table) throws SQLException {
         this.logger = logger;
         this.table = table;
-        this.conn = Utils.getDatabaseConnection(logger);
+        // this.conn = Utils.getDatabaseConnection(logger);
     }
 
     protected final AtomicInteger writtenRecordsCounter = new AtomicInteger(0);
@@ -62,7 +71,7 @@ abstract public class AbstractRWProcessor<T> {
         return highestBlock;
     }
 
-    protected abstract List<T> read(int fromBlockNumber, int toBlockNumber) throws Exception;
+    protected abstract List<T> read(Connection conn, int fromBlockNumber, int toBlockNumber) throws Exception;
 
     protected abstract void write(Connection conn, List<T> records) throws SQLException;
 
@@ -71,7 +80,7 @@ abstract public class AbstractRWProcessor<T> {
         while (attempt <= maxRetries) {
             Connection connection = null;
             try {
-                connection = refreshDatabaseConnection();
+                connection = refreshDatabaseConnection(connection);
                 if (connection == null || records == null || records.isEmpty()) {
                     throw new SQLException("Connection is null or records list is empty.");
                 }
@@ -169,7 +178,8 @@ abstract public class AbstractRWProcessor<T> {
                     "Min Batch Size: " + minBatchSize + ", " +
                     "Max Batch Size: " + maxBatchSize);
         recordQueue = new ArrayBlockingQueue<>(queueSize);
-        currentBlockNumber = new AtomicInteger(getHighestBlockNumber(conn, table)); // Initialize with a starting block number
+
+        currentBlockNumber = new AtomicInteger(getHighestBlockNumber(Utils.getDatabaseConnection(logger), table)); // Initialize with a starting block number
 
         // Create reader threads
         ForkJoinPool readerExecutor = new ForkJoinPool(readerThreads);
@@ -180,8 +190,8 @@ abstract public class AbstractRWProcessor<T> {
                 while (true) {
                     int fromBlockNumber = currentBlockNumber.getAndAdd(readBatchSize);
                     int toBlockNumber = fromBlockNumber + readBatchSize; // Example logic to determine the range
-                    try {
-                        List<T> records = read(fromBlockNumber, toBlockNumber);
+                    try (Connection conn = Utils.getDatabaseConnection(logger)) {
+                        List<T> records = read(conn, fromBlockNumber, toBlockNumber);
                         for (T record : records) {
                             recordQueue.put(record); // Use blocking call
                         }

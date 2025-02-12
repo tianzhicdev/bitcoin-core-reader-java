@@ -23,7 +23,7 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected List<TransactionJava> read(int fromBlockNumber, int toBlockNumber) throws Exception {
+    protected List<TransactionJava> read(Connection conn, int fromBlockNumber, int toBlockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
         for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
             try {

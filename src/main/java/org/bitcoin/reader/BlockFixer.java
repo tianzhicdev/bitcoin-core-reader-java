@@ -29,9 +29,9 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
     }
 
     @Override
-    protected List<TransactionJava> read(int fromBlockNumber, int toBlockNumber) throws Exception {
+    protected List<TransactionJava> read(Connection conn, int fromBlockNumber, int toBlockNumber) throws Exception {
         List<TransactionJava> transactions = new ArrayList<>();
-        List<String> existingTxids = fetchExistingTxids(fromBlockNumber, toBlockNumber);
+        List<String> existingTxids = fetchExistingTxids(conn, fromBlockNumber, toBlockNumber);
 
         boolean allBlocksValid = true;
         for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
@@ -63,7 +63,7 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
         return transactions;
     }
 
-    private List<String> fetchExistingTxids(int fromBlockNumber, int toBlockNumber) throws SQLException {
+    private List<String> fetchExistingTxids(Connection conn, int fromBlockNumber, int toBlockNumber) throws SQLException {
         List<String> txids = new ArrayList<>();
         String sql = "SELECT txid FROM transactions_java_indexed WHERE block_number >= ? AND block_number < ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

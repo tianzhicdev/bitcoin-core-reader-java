@@ -17,10 +17,10 @@ public class BalanceProcessor extends AbstractRWProcessor<BalanceRecord> {
     }
 
     @Override
-    protected List<BalanceRecord> read(int fromBlockNumber, int toBlockNumber) throws Exception {
+    protected List<BalanceRecord> read(Connection conn, int fromBlockNumber, int toBlockNumber) throws Exception {
         List<BalanceRecord> allBalanceRecords = new ArrayList<>();
         for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
-            try (Connection conn = refreshDatabaseConnection()) {
+            try {
                 List<Transaction> transactions = Utils.getTransactions(conn, blockNumber);
                 for (Transaction transaction : transactions) {
                     try {

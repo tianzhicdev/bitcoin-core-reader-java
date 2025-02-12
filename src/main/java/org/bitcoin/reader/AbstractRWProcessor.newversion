@@ -1,0 +1,103 @@
+package org.bitcoin.reader;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.logging.log4j.Logger;
+
+
+
+
+abstract public class AbstractRWProcessor<T> {
+
+    protected Logger logger;
+    protected String table;
+    protected Connection conn;
+    protected AtomicInteger currentBlockNumber;
+    protected List<Reader<T>> readers;
+    protected List<SQLWriter<T>> writers;
+    protected BlockingQueue<T> recordQueue;
+    protected ConcurrentHashMap<String, AtomicInteger> threadWrittenRecordsCounter = new ConcurrentHashMap<>();
+
+
+    public AbstractRWProcessor(Logger logger, List<Reader<T>> readers, List<SQLWriter<T>> writers, int queueSize) throws SQLException {
+        this.logger = logger;
+        this.readers = readers;
+        this.writers = writers;  
+        this.recordQueue = new ArrayBlockingQueue<>(queueSize);;
+
+
+    }
+
+    protected final AtomicInteger writtenRecordsCounter = new AtomicInteger(0);
+    protected final AtomicLong writtenBytesCounter = new AtomicLong(0);
+
+
+
+
+    protected void periodicallyReport() {
+        long previousTime = System.currentTimeMillis();
+        int previousWrittenRecords = writtenRecordsCounter.get();
+        long previousWrittenBytes = writtenBytesCounter.get();
+        ConcurrentHashMap<String, Integer> previousThreadRecords = new ConcurrentHashMap<>();
+
+        while (true) {
+            long currentBlockNumberValue = currentBlockNumber.get();
+            long currentTime = System.currentTimeMillis();
+            long timeElapsed = currentTime - previousTime;
+
+            if (timeElapsed >= 60000) {
+                int writtenRecordsChangeRate = writtenRecordsCounter.get() - previousWrittenRecords;
+                long writtenBytesChangeRate = writtenBytesCounter.get() - previousWrittenBytes;
+                double writtenMBChangeRate = writtenBytesChangeRate / (1024.0 * 1024.0);
+                logger.info("Block: " + currentBlockNumberValue + 
+                            ", Queue: " + recordQueue.size() + 
+                            ", Records/min: " + writtenRecordsChangeRate + 
+                            ", MB/min: " + writtenMBChangeRate);
+
+                StringBuilder logMessage = new StringBuilder("Thread Records/min: ");
+                threadWrittenRecordsCounter.entrySet().stream()
+                    .sorted((e1, e2) -> e2.getValue().get() - e1.getValue().get())
+                    .forEach(entry -> {
+                        String threadName = entry.getKey();
+                        int currentThreadRecords = entry.getValue().get();
+                        int threadRecordsChangeRate = currentThreadRecords - previousThreadRecords.getOrDefault(threadName, 0);
+                        logMessage.append(threadName).append(": ").append(threadRecordsChangeRate).append(", ");
+                        previousThreadRecords.put(threadName, currentThreadRecords);
+                    });
+                logger.info(logMessage.toString());
+
+                previousTime = currentTime;
+                previousWrittenRecords = writtenRecordsCounter.get();
+                previousWrittenBytes = writtenBytesCounter.get();
+            }
+
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                logger.error("Error in logging thread: ", e);
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public void execute() throws SQLException {
+
+        // currentBlockNumber = new AtomicInteger(getHighestBlockNumber(conn, table));
+
+        ForkJoinPool readerExecutor = new ForkJoinPool(readers.size());
+        readers.forEach(reader -> readerExecutor.submit(reader));
+
+        ForkJoinPool writerExecutor = new ForkJoinPool(writers.size());
+        writers.forEach(writer -> writerExecutor.submit(writer));
+
+
+        periodicallyReport();
+    }
+}
