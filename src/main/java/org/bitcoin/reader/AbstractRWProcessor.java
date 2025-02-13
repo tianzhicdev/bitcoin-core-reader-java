@@ -119,6 +119,14 @@ abstract public class AbstractRWProcessor<T> {
                     logger.error("Retry sleep interrupted: ", ie);
                     Thread.currentThread().interrupt();
                 }
+            } finally {
+                if (connection != null) {
+                    try {
+                        connection.close();
+                    } catch (SQLException closeEx) {
+                        logger.error("Error closing connection: ", closeEx);
+                    }
+                }
             }
         }
     }
@@ -190,7 +198,9 @@ abstract public class AbstractRWProcessor<T> {
                 while (true) {
                     int fromBlockNumber = currentBlockNumber.getAndAdd(readBatchSize);
                     int toBlockNumber = fromBlockNumber + readBatchSize; // Example logic to determine the range
-                    try (Connection conn = Utils.getDatabaseConnection(logger)) {
+                    Connection conn = null;
+                    try {
+                        conn = Utils.getDatabaseConnection(logger);
                         List<T> records = read(conn, fromBlockNumber, toBlockNumber);
                         for (T record : records) {
                             recordQueue.put(record); // Use blocking call
@@ -198,6 +208,14 @@ abstract public class AbstractRWProcessor<T> {
                         logger.debug("Reader - From block: " + fromBlockNumber + " to block: " + toBlockNumber + ", Queue: " + recordQueue.size() + ", Thread: " + Thread.currentThread().getName());
                     } catch (Exception e) {
                         logger.error("Error reading records for block range " + fromBlockNumber + " to " + toBlockNumber + ": ", e);
+                    } finally {
+                        if (conn != null) {
+                            try {
+                                conn.close();
+                            } catch (SQLException e) {
+                                logger.error("Error closing connection: ", e);
+                            }
+                        }
                     }
                 }
             });
