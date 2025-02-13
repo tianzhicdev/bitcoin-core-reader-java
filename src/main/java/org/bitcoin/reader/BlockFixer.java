@@ -25,7 +25,7 @@ public class BlockFixer extends AbstractRWProcessor<TransactionJava> {
 
     @Override
     protected int getHighestBlockNumber(Connection conn, String tableName) throws SQLException {
-        return 400000;
+        return 700000;
     }
 
     @Override
