@@ -27,12 +27,29 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
         List<TransactionJava> transactions = new ArrayList<>();
         for (int blockNumber = fromBlockNumber; blockNumber < toBlockNumber; blockNumber++) {
             try {
-                Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
-                Block block = btcCore.getBlock(blockHash);
+                while (true) {
+                    try {
+                        Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
+                        Block block = btcCore.getBlock(blockHash);
 
-                for (Transaction tx : block.getTransactions()) {
-                    TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
-                    transactions.add(transactionJava);
+                        for (Transaction tx : block.getTransactions()) {
+                            TransactionJava transactionJava = new TransactionJava(tx.getTxId().toString(), blockNumber, tx.serialize(), tx.toString());
+                            transactions.add(transactionJava);
+                        }
+                        break; // Exit loop if successful
+                    } catch (org.consensusj.jsonrpc.JsonRpcStatusException e) {
+                        if (e.getMessage().contains("Block height out of range")) {
+                            logger.warn("Block height out of range for block number " + blockNumber + ". Retrying in 1 minute.");
+                            try {
+                                Thread.sleep(60000); // Sleep for 1 minute
+                            } catch (InterruptedException ie) {
+                                logger.error("Sleep interrupted: ", ie);
+                                Thread.currentThread().interrupt();
+                            }
+                        } else {
+                            throw e; // Rethrow if it's a different exception
+                        }
+                    }
                 }
             } catch (Exception e) {
                 logger.error("Error getting transactions for block " + blockNumber + ": ", e);
@@ -68,6 +85,7 @@ public class BlockProcessor extends AbstractRWProcessor<TransactionJava> {
     }
 
     public static void main(String[] args) throws Exception {
+    
         int x = args.length > 0 ? Integer.parseInt(args[0]) : 1; // Number of BlockReader threads
         int y = args.length > 1 ? Integer.parseInt(args[1]) : 1;  // Number of DBWriter threads
         int queueSize = args.length > 2 ? Integer.parseInt(args[2]) : 100; // Queue size for transactionQueue

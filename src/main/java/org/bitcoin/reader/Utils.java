@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.base.Sha256Hash;
+import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionInput;
 import org.bitcoinj.core.TransactionOutput;
@@ -43,8 +45,8 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
     BitcoinClient btcCore = null;
     try {
         btcCore = new BitcoinClient(
-            // new URI("http://marcus-mini.is-very-nice.org:3003"),
-            new URI("http://localhost:3003"),
+            new URI("http://marcus-mini.is-very-nice.org:3003"),
+            // new URI("http://localhost:3003"),
             "bitcoinrpc",
             "12345"
         );
@@ -146,5 +148,37 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
     }
         return balanceRecords;
     }
+    
+public static void main(String[] args) {
+
+    try {
+
+        Logger logger = org.apache.logging.log4j.LogManager.getLogger(Utils.class);
+        // Assuming a method to get a database connection is available
+        // Connection conn = getDatabaseConnection(logger); // Pass null or a logger if needed
+
+        // Create a BitcoinClient instance
+        BitcoinClient btcCore = createBitcoinClient(logger);
+
+        // Get block 900000
+        int blockNumber = 900000;
+        Sha256Hash blockHash = btcCore.getBlockHash(blockNumber);
+        Block block = btcCore.getBlock(blockHash);
+
+        // Print block information
+        System.out.println("Block Number: " + blockNumber);
+        System.out.println("Block Hash: " + blockHash);
+        System.out.println("Number of Transactions: " + block.getTransactions().size());
+
+        // Optionally, print transaction details
+        for (Transaction tx : block.getTransactions()) {
+            System.out.println("Transaction ID: " + tx.getTxId());
+        }
+
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
     
 }
