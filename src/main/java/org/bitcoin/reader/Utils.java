@@ -45,8 +45,8 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
     BitcoinClient btcCore = null;
     try {
         btcCore = new BitcoinClient(
-            new URI("http://marcus-mini.is-very-nice.org:3003"),
-            // new URI("http://localhost:3003"),
+            // new URI("http://marcus-mini.is-very-nice.org:3003"),
+            new URI("http://localhost:3003"),
             "bitcoinrpc",
             "12345"
         );
