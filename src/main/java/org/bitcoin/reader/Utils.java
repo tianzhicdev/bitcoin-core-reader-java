@@ -26,7 +26,7 @@ public class Utils {
 
         public static Connection getDatabaseConnection(Logger logger) throws SQLException{
         Connection connection = null; // todo: make this a singleton
-        // try {
+        try {
             String url = "jdbc:postgresql://localhost:3004/bitcoin";
             // String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
             String user = "abc";
