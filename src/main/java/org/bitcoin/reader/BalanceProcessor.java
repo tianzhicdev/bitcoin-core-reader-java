@@ -16,10 +16,10 @@ public class BalanceProcessor extends AbstractRWProcessor<BalanceRecord> {
         super(logger, "balance_java");
     }
 
-    @Override
-    protected int getHighestBlockNumber(Connection conn, String tableName) throws SQLException {
-        return 678901;
-    }
+    // @Override
+    // protected int getHighestBlockNumber(Connection conn, String tableName) throws SQLException {
+    //     return 678901;
+    // }
 
     @Override
     protected List<BalanceRecord> read(Connection conn, int fromBlockNumber, int toBlockNumber) throws Exception {
