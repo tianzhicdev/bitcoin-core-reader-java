@@ -34,3 +34,31 @@ CREATE TABLE IF NOT EXISTS unprocessed_transactions_for_balance (
 CREATE INDEX IF NOT EXISTS idx_unprocessed_transactions_for_balance_txid ON unprocessed_transactions_for_balance(txid);
 CREATE INDEX IF NOT EXISTS idx_unprocessed_transactions_for_balance_block_number ON unprocessed_transactions_for_balance(block_number);
 
+CREATE TABLE IF NOT EXISTS timeseries_hodl_1y (
+    timestamp TIMESTAMP NOT NULL,
+    block_number INT NOT NULL,
+    value FLOAT
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_1y_timestamp ON timeseries_hodl_1y(timestamp);
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_1y_block_number ON timeseries_hodl_1y(block_number);
+
+CREATE TABLE IF NOT EXISTS timeseries_hodl_2y (
+    timestamp TIMESTAMP NOT NULL,
+    block_number INT NOT NULL,
+    value FLOAT
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_2y_timestamp ON timeseries_hodl_2y(timestamp);
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_2y_block_number ON timeseries_hodl_2y(block_number);
+
+CREATE TABLE IF NOT EXISTS timeseries_hodl_3y (
+    timestamp TIMESTAMP NOT NULL,
+    block_number INT NOT NULL,
+    value FLOAT
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_3y_timestamp ON timeseries_hodl_3y(timestamp);
+CREATE INDEX IF NOT EXISTS idx_timeseries_hodl_3y_block_number ON timeseries_hodl_3y(block_number);
+
+

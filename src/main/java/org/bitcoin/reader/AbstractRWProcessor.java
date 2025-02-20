@@ -97,7 +97,7 @@ abstract public class AbstractRWProcessor<T> {
                 } catch (SQLException e) {
                     // Roll back in case of an error
                     try {
-                        connection.rollback();
+                        connection.rollback(); // todo: data is idempotent so no rollback is needed 
                     } catch (SQLException rollbackEx) {
                         logger.error("Error during transaction rollback: ", rollbackEx);
                     }

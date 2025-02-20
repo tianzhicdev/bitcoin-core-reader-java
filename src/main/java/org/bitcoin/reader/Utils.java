@@ -23,12 +23,18 @@ import org.consensusj.bitcoin.jsonrpc.BitcoinClient;
 import com.google.common.io.BaseEncoding;
 
 public class Utils {
+        static boolean local = true; // compile time variable lol
 
         public static Connection getDatabaseConnection(Logger logger) throws SQLException{
         Connection connection = null; // todo: make this a singleton
         try {
-            String url = "jdbc:postgresql://localhost:3004/bitcoin";
-            // String url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
+            String url;
+            if (local) {
+                url = "jdbc:postgresql://localhost:3004/bitcoin";
+            } else {
+                url = "jdbc:postgresql://marcus-mini.is-very-nice.org:3004/bitcoin";
+            }
+
             String user = "abc";
             String password = "12345";
 
@@ -45,8 +51,7 @@ public static BitcoinClient createBitcoinClient(Logger logger) {
     BitcoinClient btcCore = null;
     try {
         btcCore = new BitcoinClient(
-            // new URI("http://marcus-mini.is-very-nice.org:3003"),
-            new URI("http://localhost:3003"),
+            new URI(local ? "http://localhost:3003" : "http://marcus-mini.is-very-nice.org:3003"),
             "bitcoinrpc",
             "12345"
         );
